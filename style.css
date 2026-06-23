@@ -1,0 +1,595 @@
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background: #f4f1ec;
+  color: #333;
+}
+
+header {
+  padding: 16px 24px;
+  background: #2f2a25;
+  color: white;
+}
+
+h1 {
+  margin: 0;
+}
+
+.app-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr 300px;
+  height: calc(100vh - 68px);
+}
+
+.sidebar,
+.detail {
+  padding: 16px;
+  background: #fffaf3;
+  border-right: 1px solid #ddd;
+  overflow-y: auto;
+}
+
+.detail {
+  border-right: none;
+  border-left: 1px solid #ddd;
+}
+
+.editor {
+  padding: 16px;
+}
+
+textarea {
+  width: 100%;
+  height: 85%;
+  font-size: 16px;
+  line-height: 1.7;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.page-button {
+  display: block;
+  width: 100%;
+  margin: 6px 0;
+  padding: 8px;
+  text-align: left;
+  border: none;
+  background: #eee2d0;
+  cursor: pointer;
+}
+
+.page-button:hover {
+  background: #d8c3a5;
+}
+
+.info-row {
+  margin-bottom: 10px;
+}
+
+.main-page {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.page-title-input {
+  font-size: 28px;
+  font-weight: bold;
+  border: none;
+  background: transparent;
+  padding: 8px 0;
+}
+
+.page-title-input:focus {
+  outline: 2px solid #d8c3a5;
+  background: #fffaf3;
+}
+
+.page-type {
+  color: #777;
+  font-size: 14px;
+}
+
+#page-body {
+  flex: 1;
+  width: 100%;
+  font-size: 16px;
+  line-height: 1.7;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.page-preview {
+  padding: 12px;
+  background: #fffaf3;
+  border: 1px solid #ddd;
+  min-height: 120px;
+  line-height: 1.7;
+}
+
+.wiki-link {
+  border: none;
+  background: #ead7b7;
+  color: #4b3827;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.wiki-link:hover {
+  background: #d8c3a5;
+}
+
+.new-page-button {
+  width: 100%;
+  margin-bottom: 16px;
+  padding: 10px;
+  border: none;
+  background: #c49a6c;
+  color: white;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.new-page-button:hover {
+  background: #a87f52;
+}
+
+.page-group {
+  margin-bottom: 18px;
+}
+
+.page-group-title {
+  font-size: 16px;
+  margin: 10px 0 6px;
+}
+
+.page-button.active {
+  background: #c49a6c;
+  color: white;
+}
+
+.delete-button {
+  width: 100%;
+  margin-bottom: 16px;
+  padding: 10px;
+  border: none;
+  background: #8b5e4a;
+  color: white;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.delete-button:hover {
+  background: #6f4535;
+}
+
+.novel-group-title {
+  font-size: 20px;
+  margin: 20px 0 8px;
+  padding-top: 12px;
+  border-top: 2px solid #c49a6c;
+}
+
+.pane-menu {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: #2f2a25;
+  color: white;
+}
+
+.top-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.top-button {
+  padding: 8px 12px;
+  border: none;
+  background: #c49a6c;
+  color: white;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.top-button:hover {
+  background: #a87f52;
+}
+
+.side-input {
+  width: 100%;
+  margin: 4px 0 12px;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.side-textarea {
+  width: 100%;
+  min-height: 240px;
+  padding: 8px;
+  box-sizing: border-box;
+  line-height: 1.6;
+}
+
+.detail label {
+  display: block;
+  font-weight: bold;
+  margin-top: 8px;
+}
+
+.folder-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.folder-header .page-group-title {
+  flex: 1;
+}
+
+.folder-action-button {
+  font-size: 11px;
+  padding: 3px 6px;
+  border: none;
+  background: #ddd0bd;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.folder-action-button:hover {
+  background: #c9b79f;
+}
+
+.search-input {
+  width: 100%;
+  margin: 8px 0 12px;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.side-button-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.side-button {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  background: #ddd0bd;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.side-button:hover {
+  background: #c9b79f;
+}
+
+.main-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.main-tab {
+  padding: 8px 12px;
+  border: none;
+  background: #ddd0bd;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.main-tab.active {
+  background: #c49a6c;
+  color: white;
+}
+
+.tab-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.hidden {
+  display: none;
+}
+
+.timeline-card {
+  background: #fffaf3;
+  border: 1px solid #ddd0bd;
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 6px;
+}
+
+.timeline-title {
+  width: 100%;
+  font-weight: bold;
+  font-size: 16px;
+  padding: 8px;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+}
+
+.timeline-body {
+  width: 100%;
+  min-height: 80px;
+  padding: 8px;
+  box-sizing: border-box;
+  line-height: 1.6;
+}
+
+.flag-card {
+  background: #fffaf3; 
+  border: 1px solid #ddd0bd; 
+  padding: 12px;
+  margin-bottom: 12px; 
+  border-radius: 6px; 
+} 
+
+.flag-title, .flag-status, .flag-memo {
+  width: 100%; 
+  margin-bottom: 8px; 
+  padding: 8px; box-sizing: border-box; 
+} 
+
+.flag-title { 
+  font-weight: bold; 
+  font-size: 16px; 
+} 
+
+.flag-memo { 
+  min-height: 70px; 
+  line-height: 1.6; 
+}
+
+.event-flags {
+  margin-top: 8px;
+  padding: 8px;
+  background: #f7efe3;
+  border: 1px solid #ddd0bd;
+  border-radius: 4px;
+}
+
+.event-flags-title {
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+.event-flag-label {
+  display: block;
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.empty-message {
+  margin: 0;
+  color: #777;
+  font-size: 14px;
+}
+
+.flag-related-events {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #ddd0bd;
+}
+
+.flag-related-events ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.side-related-events {
+  background: #f7efe3;
+  border: 1px solid #ddd0bd;
+  border-radius: 4px;
+  padding: 8px;
+  margin: 4px 0 12px;
+}
+
+.side-related-events ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.side-dictionary-body {
+  background: #fffaf3;
+  border: 1px solid #ddd0bd;
+  border-radius: 4px;
+  padding: 8px;
+  margin-bottom: 12px;
+  line-height: 1.7;
+}
+
+.dictionary-line {
+  padding: 4px 0;
+  border-bottom: 1px dashed #ead7b7;
+}
+
+.dictionary-line:last-child {
+  border-bottom: none;
+}
+
+.dictionary-line-text {
+  white-space: pre-wrap;
+}
+
+.line-annotation {
+  margin: 4px 0 4px 16px;
+  padding: 6px 8px;
+  background: #f7efe3;
+  border-left: 3px solid #c49a6c;
+  font-size: 13px;
+  color: #5a4635;
+}
+
+.add-annotation-button {
+  margin: 4px 0 4px 16px;
+  padding: 3px 8px;
+  border: none;
+  background: #ddd0bd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.add-annotation-button:hover {
+  background: #c9b79f;
+}
+
+.annotation-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.edit-annotation-button,
+.delete-annotation-button {
+  padding: 3px 8px;
+  border: none;
+  background: #ddd0bd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.edit-annotation-button:hover,
+.delete-annotation-button:hover {
+  background: #c9b79f;
+}
+
+.annotation-source {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #777;
+}
+
+.add-source-button {
+  margin: 4px 0;
+  padding: 3px 8px;
+  border: none;
+  background: #ead7b7;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.add-source-button:hover {
+  background: #d8c3a5;
+}
+
+.base-source {
+  margin: 2px 0 4px 0;
+  font-size: 12px;
+  color: #777;
+}
+
+.source-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.edit-source-button,
+.delete-source-button {
+  padding: 3px 8px;
+  border: none;
+  background: #ddd0bd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.edit-source-button:hover,
+.delete-source-button:hover {
+  background: #c9b79f;
+}
+
+.dropdown {
+  position: relative;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  background: #fffaf3;
+  border: 1px solid #ddd0bd;
+  border-radius: 4px;
+  padding: 6px;
+  z-index: 10;
+  min-width: 140px;
+}
+
+.dropdown-menu button {
+  display: block;
+  width: 100%;
+  padding: 8px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dropdown-menu button:hover {
+  background: #ead7b7;
+}
+
+/* 右サイド内の小さい操作ボタン */
+.add-source-button,
+.add-annotation-button,
+.edit-source-button,
+.delete-source-button,
+.edit-annotation-button,
+.delete-annotation-button {
+  min-width: 28px;
+  padding: 2px 6px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* 出典・注釈の操作ボタンを右寄せにする */
+.source-actions,
+.annotation-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.sidebar-actions {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.sidebar-actions .new-page-button {
+  flex: 1;
+  margin-bottom: 0;
+  padding: 8px;
+  font-size: 20px;
+}
+
+.icon-delete-button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: #ead7b7;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.icon-delete-button:hover {
+  background: #d8c3a5;
+}
