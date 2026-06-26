@@ -1,0 +1,64 @@
+# 開発ワードメモ
+
+# 260626
+## npm run dev
+ターミナルにいれるとviteを使えるURL作ってくれる
+
+## git
+コードをバージョンごとに保存していくシステム。買い物に似ている
+git addで保存したいものをかごに入れる
+git commitでレジ通して保存
+
+## .gitngnore
+gitで保存しなくても良いファイルを指定しておく
+
+
+
+# 260624
+## document
+HTML全体
+
+## getElementByID
+HTMLの部品を持ってくる
+
+## page-body
+本文欄
+
+## value
+中身
+
+## type="module"
+import を使えるJSとして読む
+
+## src="/script.js"
+→script.jsを読み込む
+
+
+
+# chatGPTにつくってもらったメモ
+■ saveData()
+データをlocalStorageへ保存する
+
+■ renderPageList()
+左サイドバーの辞書一覧を再描画する
+
+■ showPage(pageId)
+指定した辞書ページを表示する
+
+■ updateSideInfo(page)
+右サイドビューを再描画する
+
+■ getCurrentWork()
+現在選択中の作品データを取得する
+
+■ renderDictionaryBodyWithAnnotations(page)
+辞書本文＋注釈＋出典を表示用HTMLに変換する
+
+■ work.annotations
+作品ごとの注釈一覧
+
+■ page.sources
+原作本文の出典一覧
+
+■ page.tags
+辞書ページのタグ一覧

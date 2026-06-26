@@ -593,3 +593,183 @@ textarea {
 .icon-delete-button:hover {
   background: #d8c3a5;
 }
+
+#page-body {
+  display: none;
+}
+
+#editor {
+  flex: 1;
+  min-height: 400px;
+  background: #fffaf3;
+  border: 1px solid #ddd0bd;
+}
+
+#editor {
+  flex: 1;
+  min-height: 500px;
+  background: #fffaf3;
+  border: 1px solid #ddd0bd;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+#editor .cm-editor {
+  min-height: 500px;
+}
+
+#editor .cm-scroller {
+  font-family: "Yu Gothic", "Hiragino Sans", sans-serif;
+  line-height: 1.8;
+  padding: 16px;
+}
+
+.main-page {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#novel-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#editor {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#editor .cm-editor {
+  height: 100%;
+}
+
+#editor .cm-scroller {
+  overflow: auto;
+}
+
+.main-page {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#novel-panel {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+#editor {
+  flex: 1;
+  min-height: 500px;
+  overflow: hidden;
+}
+
+#editor .cm-editor {
+  height: 100%;
+}
+
+#editor .cm-scroller {
+  overflow: auto;
+}
+
+.tab-panel.hidden {
+  display: none;
+}
+
+#novel-panel.hidden {
+  display: none;
+}
+
+#timeline-panel.hidden {
+  display: none;
+}
+
+#relation-panel.hidden {
+  display: none;
+}
+
+#flags-panel.hidden {
+  display: none;
+}
+
+.save-status {
+  display: inline-block;
+  min-width: 120px;
+}
+
+.save-status{
+  display:inline-block;
+  min-width:110px;
+  font-weight:bold;
+}
+
+.save-status.saving{
+  color:#d39b00;
+}
+
+.save-status.saved{
+  color:#2c9d3d;
+}
+
+.app-layout.left-collapsed .sidebar {
+  display: none;
+}
+
+.app-layout.right-collapsed .detail {
+  display: none;
+}
+
+.app-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr 320px;
+  height: calc(100vh - 60px);
+}
+
+.app-layout.left-collapsed {
+  grid-template-columns: 1fr 320px;
+}
+
+.app-layout.right-collapsed {
+  grid-template-columns: 240px 1fr;
+}
+
+.app-layout.left-collapsed.right-collapsed {
+  grid-template-columns: 1fr;
+}
+
+.sidebar,
+.detail {
+  position: relative;
+}
+
+#toggle-left-pane-button {
+  position: fixed;
+  left: 238px;
+  bottom: 20px;
+  z-index: 1000;
+}
+
+body.left-collapsed #toggle-left-pane-button {
+  left: 8px;
+}
+
+#toggle-right-pane-button {
+  position: fixed;
+  right: 318px;
+  bottom: 20px;
+  z-index: 1000;
+}
+
+body.right-collapsed #toggle-right-pane-button {
+  right: 8px;
+}

@@ -1,4 +1,42 @@
 // ==============================
+// 目次
+// 1. サンプルデータ
+// 2. データ読み込み・現在状態
+// 3. HTML要素取得
+// 4. 汎用関数
+// 5. 表示関数
+// 6. 移動系関数
+// 7. Wikiリンク系
+// 8. ボタン・入力イベント登録
+// 9. codeMirror系
+// 99. 初期表示
+// ==============================
+
+
+
+// codemirrorのEditorViewを持ってくる
+import { EditorView } from "codemirror";
+import { undo, redo } from "@codemirror/commands";
+
+// 小説本文用CodeMirror本体を入れる箱を先に作る
+let novelEditor = null;
+
+// HTMLの読み込みが終わったら、CodeMirrorを作る
+/*window.addEventListener("DOMContentLoaded", () => {
+  const editorElement =
+    document.getElementById("editor");
+
+  novelEditor = new EditorView({
+    doc: "",
+    parent: editorElement
+  });
+
+  console.log("CodeMirror本文エディタ作成");
+});*/
+
+
+
+// ==============================
 // 1. サンプルデータ
 // ==============================
 const defaultData = {
@@ -97,12 +135,14 @@ let dictionaryLayerMode = "base";
 // 3. HTML要素取得
 // ==============================
 // HTML上の要素をJavaScriptから操作できるように取得する。
+
 const titleInput = document.getElementById("page-title");
 const typeArea = document.getElementById("page-type");
 const newEventButton = document.getElementById("new-event-button");
 
-
+//HTML全体の中からIDが"page-body"の要素を探して、bodyInputという箱に入れる
 const bodyInput = document.getElementById("page-body");
+
 const sideInfo = document.getElementById("side-info");
 
 const pageList = document.getElementById("page-list");
@@ -138,6 +178,29 @@ const importWorkButton = document.getElementById("import-work-button");
 const exportBaseButton = document.getElementById("export-base-button");
 const exportWorkButton = document.getElementById("export-work-button");
 
+//HTML要素取得
+const editorElement = document.getElementById("editor");
+
+//文字数カウント
+const novelCharCount = document.getElementById("novel-char-count");
+
+// アンドゥリドゥボタンの要素
+const undoButton = document.getElementById("undo-button");
+const redoButton = document.getElementById("redo-button");
+
+//保存状態表示用
+const saveStatus = document.getElementById("save-status");
+let saveStatusTimer = null;
+
+//左右画面閉じ開き
+const toggleLeftPaneButton = document.getElementById("toggle-left-pane-button");
+const toggleRightPaneButton = document.getElementById("toggle-right-pane-button");
+
+
+const leftPane = document.querySelector(".left-pane");
+const rightPane = document.querySelector(".right-pane");
+const appLayout = document.querySelector(".app-layout");
+
 
 // ==============================
 // 4. 汎用関数
@@ -152,6 +215,15 @@ function saveData() {
       works
     })
   );
+
+  //保存中のアイコンを変える（0.3秒保存済みアイコンは遅らせる）
+  if (saveStatusTimer) {
+    clearTimeout(saveStatusTimer);
+  }
+
+  saveStatusTimer = setTimeout(() => {
+    updateSaveStatus("🟢 保存済み", "saved");
+  }, 300);
 }
 
 //localStorageにあるデータを読み込む
@@ -270,6 +342,20 @@ function downloadJson(filename, data) {
   URL.revokeObjectURL(url);
 }
 
+//保存中などのステータスを表示する
+function updateSaveStatus(text, className = "") {
+  
+  saveStatus.textContent = text;
+
+  //classNameを書き換える
+  saveStatus.className = "save-status";
+
+  //classを追加する
+  if (className) {
+    saveStatus.classList.add(className);
+  }
+}
+
 
 
 // ==============================
@@ -278,19 +364,35 @@ function downloadJson(filename, data) {
 // ==============================
 // 指定した小説本文を中央エリアに表示する
 function showNovel(novelId) {
+  console.log("showNovel呼ばれた", novelId);
+
   const novel =
     novels.find((n) => n.id === novelId);
 
+  console.log("見つかったnovel", novel);
+
   if (!novel) return;
 
-  // 今選んでいる本文IDを更新する
   currentNovelId = novelId;
 
-  // HTMLの入力欄に本文データを反映する
   titleInput.value = novel.title;
   typeArea.textContent = "種類：本文";
   bodyInput.value = novel.body;
+
+  console.log("CodeMirrorに入れる本文", novel.body);
+
+  if (novelEditor) {
+    novelEditor.dispatch({
+      changes: {
+        from: 0,
+        to: novelEditor.state.doc.length,
+        insert: novel.body
+      }
+    });
+  }
+  updateNovelCharCount();
 }
+
 
 // 指定した辞書ページを右側のサイドビューに表示する
 function showPage(pageId) {
@@ -1134,6 +1236,7 @@ function switchMainTab(tabName) {
   }
 }
 
+
 // 現在の中央タブに合わせて、上部メニューのボタン表示を切り替える
 function updatePaneMenu() {
   if (currentMainTab === "novel") {
@@ -1143,6 +1246,17 @@ function updatePaneMenu() {
   }
 }
 
+//文字数カウント
+function updateNovelCharCount() {
+  const novel = getCurrentNovel();
+
+  if (!novel) {
+    novelCharCount.textContent = "0文字";
+    return;
+  }
+
+  novelCharCount.textContent = `${novel.body.length}文字`;
+}
 
 
 // ==============================
@@ -1318,6 +1432,7 @@ bodyInput.addEventListener("input", () => {
   const novel = getCurrentNovel();
   if (!novel) return;
 
+  //本文保存　textareaの中身をnovel.bodyに保存
   novel.body = bodyInput.value;
   saveData();
 });
@@ -1533,11 +1648,80 @@ exportWorkButton.addEventListener("click", () => {
   });
 });
 
+// アンドゥボタン
+undoButton.addEventListener("click", () => {
+  if (!novelEditor) return;
+  undo(novelEditor);
+});
+
+//リドゥボタン
+redoButton.addEventListener("click", () => {
+  if (!novelEditor) return;
+  redo(novelEditor);
+});
+
+//左パネル閉じ開きボタン
+toggleLeftPaneButton.addEventListener("click", () => {
+  appLayout.classList.toggle("left-collapsed");
+  document.body.classList.toggle("left-collapsed");
+
+  if (appLayout.classList.contains("left-collapsed")) {
+    toggleLeftPaneButton.textContent = "▶";
+  } else {
+    toggleLeftPaneButton.textContent = "◀";
+  }
+});
+
+//右パネル閉じ開きボタン
+toggleRightPaneButton.addEventListener("click", () => {
+  appLayout.classList.toggle("right-collapsed");
+  document.body.classList.toggle("right-collapsed");
+
+  if (appLayout.classList.contains("right-collapsed")) {
+    toggleRightPaneButton.textContent = "◀";
+  } else {
+    toggleRightPaneButton.textContent = "▶";
+  }
+});
+
 
 
 // ==============================
-// 9. 初期表示
+// 9. codeMirror系
 // ==============================
+function initNovelEditor() {
+  novelEditor = new EditorView({
+    doc: "",
+    parent: editorElement,
+    extensions: [
+      EditorView.lineWrapping
+    ],
+
+    dispatch: (transaction) => {
+      novelEditor.update([transaction]);
+
+      if (transaction.docChanged) {
+        updateSaveStatus("🟡 保存中...", "saving");
+        const novel = getCurrentNovel();
+        if (!novel) return;
+
+        novel.body = novelEditor.state.doc.toString();
+        bodyInput.value = novel.body;
+
+        saveData();
+        updateNovelCharCount();
+      }
+    }
+  });
+}
+
+
+
+// ==============================
+// 99. 初期表示
+// ==============================
+initNovelEditor();
+
 renderPageList();
 
 if (novels.length > 0) {
@@ -1547,4 +1731,3 @@ if (novels.length > 0) {
 updatePaneMenu();
 
 console.log("Fanfic Studio 起動！");
-

@@ -11,6 +11,7 @@
   <h1>Fanfic Studio</h1>
 
 <div class="top-actions">
+    <span id="save-status" class="save-status">● 保存済み</span>
   <button id="layer-toggle-button" class="top-button">原作のみ</button>
 
   <div class="dropdown">
@@ -28,8 +29,18 @@
       <button id="export-work-button">作品書き出し</button>
     </div>
   </div>
+
 </div>
  </header>
+
+<div class="left-toggle-container">
+  <button id="toggle-left-pane-button">◀</button>
+</div>
+
+<div class="right-toggle-container">
+  <button id="toggle-right-pane-button">▶</button>
+</div>
+ 
 
 
   <main class="app-layout">
@@ -61,7 +72,6 @@
   >
     📝
   </button>
-
 </div>
 <div id="page-list"></div>
 
@@ -94,7 +104,15 @@
   <div id="novel-panel" class="tab-panel">
     <input id="page-title" class="page-title-input" value="">
     <div id="page-type" class="page-type"></div>
+
+    <div class="novel-toolbar">
+      <button id="undo-button">↶</button>
+      <button id="redo-button">↷</button>
+      <span id="novel-char-count">0文字</span>
+    </div>
+
     <textarea id="page-body"></textarea>
+    <div id="editor"></div>
   </div>
 
   <div id="timeline-panel" class="tab-panel hidden">
@@ -131,6 +149,7 @@
 </aside>
   </main>
 
-  <script src="script.js"></script>
+  <script type="module" src="/script.js"></script>
+  
 </body>
 </html>
