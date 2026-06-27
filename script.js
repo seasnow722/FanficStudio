@@ -130,6 +130,10 @@ let currentMainTab = "novel";
 // "overlay" = 原作 + 現在の作品注釈
 let dictionaryLayerMode = "base";
 
+//ページの幅
+let leftPaneWidth = data.leftPaneWidth;
+let rightPaneWidth = data.rightPaneWidth;
+
 
 // ==============================
 // 3. HTML要素取得
@@ -201,6 +205,14 @@ const leftPane = document.querySelector(".left-pane");
 const rightPane = document.querySelector(".right-pane");
 const appLayout = document.querySelector(".app-layout");
 
+//サイドバー二種の境界線取得
+const leftResizer =
+  document.getElementById("left-resizer");
+const rightResizer =
+  document.getElementById("right-resizer");
+
+const sidebar = document.querySelector(".sidebar");
+
 
 // ==============================
 // 4. 汎用関数
@@ -212,7 +224,9 @@ function saveData() {
     JSON.stringify({
       folders,
       basePages,
-      works
+      works,
+      leftPaneWidth,
+      rightPaneWidth
     })
   );
 
@@ -259,6 +273,14 @@ function loadData() {
     if (!page.sources) {
     page.sources = [];
     }
+
+    //辞書ページにlineIdsがなければ本文の行数分IDをつくる
+    if (!page.lineIds) {
+    page.lineIds = page.body
+    .split("\n")
+    .map(() => createPageId());
+}
+
   });
 
   parsedData.works.forEach((work) => {
@@ -272,13 +294,18 @@ function loadData() {
     if (!work.annotations) work.annotations = [];
   });
 
+  //左右の幅が保存されていたら使う（??）
+  //保存されていないなら240か320になる
+  parsedData.leftPaneWidth = parsedData.leftPaneWidth ?? 240;
+  parsedData.rightPaneWidth = parsedData.rightPaneWidth ?? 320;
+
   return parsedData;
 }
 
 //新しいページ・本文・イベント・フラグで使うIDを作る
 //Date.now()は現在時刻の数字なので、毎回違うIDになりやすい
 function createPageId() {
-  return `page-${Date.now()}`;
+  return `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 // currentWorkId をもとに、現在選択中の作品データを取り出す
@@ -418,15 +445,22 @@ function renderDictionaryBodyWithAnnotations(page) {
     work.annotations = [];
   }
 
+  ensurePageLineIds(page);
   const lines = page.body.split("\n");
 
-  return lines.map((line, index) => {
 
-    const sources = page.sources || [];
+return lines.map((line, index) => {
+  console.log(index, page.lineIds[index]);
+  const lineId = page.lineIds[index];
 
-    const lineSources = sources.filter((sourceItem) => {
-      return sourceItem.lineIndex === index;
-    });
+  const sources = page.sources || [];
+
+  const lineSources = sources.filter((sourceItem) => {
+    return (
+      sourceItem.lineId === lineId ||
+      sourceItem.lineIndex === index
+    );
+  });
 
 const sourceHtml = lineSources.map((sourceItem) => {
   return `
@@ -445,12 +479,16 @@ const sourceHtml = lineSources.map((sourceItem) => {
   `;
 }).join("");
 
+
     const annotations = work.annotations.filter((annotation) => {
-      return (
-        annotation.pageId === page.id &&
+    return (
+      annotation.pageId === page.id &&
+      (
+        annotation.lineId === lineId ||
         annotation.lineIndex === index
-      );
-    });
+      )
+    );
+});
 
 const annotationHtml = annotations.map((annotation) => {
   return `
@@ -478,14 +516,20 @@ const annotationHtml = annotations.map((annotation) => {
 }).join("");
 
 return `
+
   <div class="dictionary-line">
-    <div class="dictionary-line-text">${convertLinksToHtml(line || "　")}</div>
+  <textarea
+    class="dictionary-line-input"
+    data-line-index="${index}"
+    data-line-id="${page.lineIds[index]}"
+    >${line}</textarea>
 
     ${sourceHtml}
 
     <button
       class="add-source-button"
       data-line-index="${index}"
+      data-line-id="${lineId}"
       title="原作出典を追加"
       >
       出
@@ -494,13 +538,14 @@ return `
     ${
       dictionaryLayerMode === "overlay"
       ? `
-          <button
-            class="add-annotation-button"
-            data-line-index="${index}"
-            title="作品注釈を追加"
+        <button
+          class="add-annotation-button"
+          data-line-index="${index}"
+          data-line-id="${lineId}"
+          title="作品注釈を追加"
           >
-            ＋
-          </button>
+          ＋
+        </button>
 
           ${annotationHtml}
         `
@@ -601,6 +646,24 @@ function setupSideEditor(page) {
     saveData();
   });
 
+  const dictionaryLineInputs =
+  sideInfo.querySelectorAll(".dictionary-line-input");
+
+dictionaryLineInputs.forEach((input) => {
+  input.addEventListener("input", () => {
+    const lineIndex = Number(input.dataset.lineIndex);
+    //const lineId = button.dataset.lineId;
+
+    const lines = page.body.split("\n");
+
+    lines[lineIndex] = input.value;
+
+    page.body = lines.join("\n");
+
+    saveData();
+  });
+});
+
   editPageBodyButton.addEventListener("click", () => {
   const newBody = prompt("辞書本文を編集してください", page.body);
 
@@ -622,7 +685,7 @@ function setupSideEditor(page) {
   movePage(page, -1);
   });
 
-    moveDownButton.addEventListener("click", () => {
+  moveDownButton.addEventListener("click", () => {
   movePage(page, 1);
   });
 
@@ -642,6 +705,7 @@ function setupSideEditor(page) {
 
     const lineIndex =
       Number(button.dataset.lineIndex);
+      const lineId = button.dataset.lineId;
 
     const source = prompt(
       "この行の出典を入力してください"
@@ -656,9 +720,10 @@ function setupSideEditor(page) {
 
     //出典データを配列に追加する
     page.sources.push({
-    id: createPageId(),
-    lineIndex,
-    source
+      id: createPageId(),
+      lineIndex,
+      lineId,
+      source
     });
 
     //localStorageに保存する
@@ -716,6 +781,7 @@ function setupSideEditor(page) {
 annotationButtons.forEach((button) => {
   button.addEventListener("click", () => {
     const lineIndex = Number(button.dataset.lineIndex);
+    const lineId = button.dataset.lineId;
     const body = prompt("この行に追加する作品注釈を入力してください");
 
     if (!body) return;
@@ -730,11 +796,12 @@ annotationButtons.forEach((button) => {
     }
 
     work.annotations.push({
-    id: createPageId(),
-    pageId: page.id,
-    lineIndex,
-    body,
-    source
+      id: createPageId(),
+      pageId: page.id,
+      lineIndex,
+      lineId,
+      body,
+      source
     });
 
     saveData();
@@ -1307,6 +1374,67 @@ function moveEvent(event, direction) {
   renderTimeline();
 }
 
+//幅ドラッグ関係の変数定義
+let isDraggingLeft = false;
+let isDraggingRight = false;
+
+//gridを更新する関数
+//今覚えている左右幅を前提に画面の幅を作る
+function updatePaneGrid() {
+  appLayout.style.gridTemplateColumns =
+    `${leftPaneWidth}px 6px 1fr 6px ${rightPaneWidth}px`;
+}
+
+//左サイドバーのサイズ変更箇所のドラッグを検知する
+leftResizer.addEventListener("mousedown", () => {
+  isDraggingLeft = true;
+  console.log("左ドラッグ開始！");
+});
+
+//右サイドバーのサイズ変更箇所のドラッグを検知する
+rightResizer.addEventListener("mousedown", () => {
+  isDraggingRight = true;
+  console.log("右ドラッグ開始！");
+});
+
+//サイドバーを掴んでドラッグしている間だけ座標を見る
+document.addEventListener("mousemove", (event) => {
+  if (isDraggingLeft) {
+    leftPaneWidth = event.clientX;
+
+    if (leftPaneWidth < 120) leftPaneWidth = 120;
+    if (leftPaneWidth > 500) leftPaneWidth = 500;
+
+    updatePaneGrid();
+  }
+
+  if (isDraggingRight) {
+    rightPaneWidth =
+      window.innerWidth - event.clientX;
+
+    if (rightPaneWidth < 160) rightPaneWidth = 160;
+    if (rightPaneWidth > 600) rightPaneWidth = 600;
+
+    updatePaneGrid();
+  }
+});
+
+//サイドバーのドラッグを離した時止める
+document.addEventListener("mouseup", () => {
+  if (isDraggingLeft) {
+    isDraggingLeft = false;
+    console.log("左ドラッグ終了！");
+    saveData();
+  }
+
+  if (isDraggingRight) {
+    isDraggingRight = false;
+    console.log("右ドラッグ終了！");
+    saveData();
+  }
+});
+
+
 
 
 // ==============================
@@ -1353,7 +1481,8 @@ newPageButton.addEventListener("click", () => {
     order: pages.length + 1,
     tags: [],
     body: "",
-    sources: []
+    sources: [],
+    lineIds: [createPageId()]
 };
 
   pages.push(newPage);
@@ -1684,6 +1813,24 @@ toggleRightPaneButton.addEventListener("click", () => {
   }
 });
 
+//辞書本文を編集したときにlineIDが足りなくならないようにする関数
+function ensurePageLineIds(page) {
+  const lines = page.body.split("\n");
+
+  if (!page.lineIds) {
+    page.lineIds = [];
+  }
+
+  while (page.lineIds.length < lines.length) {
+    page.lineIds.push(createPageId());
+  }
+
+  if (page.lineIds.length > lines.length) {
+    page.lineIds = page.lineIds.slice(0, lines.length);
+  }
+}
+
+
 
 
 // ==============================
@@ -1721,6 +1868,7 @@ function initNovelEditor() {
 // 99. 初期表示
 // ==============================
 initNovelEditor();
+updatePaneGrid();
 
 renderPageList();
 

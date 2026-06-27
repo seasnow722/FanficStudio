@@ -17,8 +17,8 @@ h1 {
 
 .app-layout {
   display: grid;
-  grid-template-columns: 220px 1fr 300px;
-  height: calc(100vh - 68px);
+  grid-template-columns: 240px 6px 1fr 6px 320px;
+  height: calc(100vh - 60px);
 }
 
 .sidebar,
@@ -729,12 +729,6 @@ textarea {
   display: none;
 }
 
-.app-layout {
-  display: grid;
-  grid-template-columns: 240px 1fr 320px;
-  height: calc(100vh - 60px);
-}
-
 .app-layout.left-collapsed {
   grid-template-columns: 1fr 320px;
 }
@@ -772,4 +766,23 @@ body.left-collapsed #toggle-left-pane-button {
 
 body.right-collapsed #toggle-right-pane-button {
   right: 8px;
+}
+
+#left-resizer,
+#right-resizer{
+    width:6px;
+    cursor:col-resize;
+    background:#d8c8b4;
+}
+
+.dictionary-line-input {
+  flex: 1;
+  min-height: 2em;
+  resize: vertical;
+  border: 1px solid #ddd0bd;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-family: inherit;
+  line-height: 1.6;
+  background: #fffaf3;
 }
