@@ -786,3 +786,76 @@ body.right-collapsed #toggle-right-pane-button {
   line-height: 1.6;
   background: #fffaf3;
 }
+
+.dictionary-line {
+  position: relative;
+  padding: 6px 0;
+}
+
+.dictionary-line-input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 2.2em;
+  resize: vertical;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 48px 6px 8px;
+  font-family: inherit;
+  line-height: 1.6;
+  background: transparent;
+}
+
+.dictionary-line-input:focus {
+  border-color: #d8c8b4;
+  background: #fffaf3;
+  outline: none;
+}
+
+.add-source-button,
+.add-annotation-button {
+  position: absolute;
+  top: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid #d8c8b4;
+  background: #fffaf3;
+  cursor: pointer;
+
+  opacity: 0;
+  pointer-events: none;
+}
+
+.add-source-button {
+  right: 36px;
+}
+
+.add-annotation-button {
+  right: 6px;
+}
+
+.dictionary-line:hover .add-source-button,
+.dictionary-line:hover .add-annotation-button,
+.dictionary-line:focus-within .add-source-button,
+.dictionary-line:focus-within .add-annotation-button {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#dictionary-editor {
+  min-height: 300px;
+  border: 1px solid #ddd0bd;
+  border-radius: 8px;
+  background: #fffaf3;
+  overflow: hidden;
+}
+
+#dictionary-editor .cm-editor {
+  min-height: 300px;
+}
+
+#dictionary-editor .cm-scroller {
+  font-family: "Yu Gothic", "Hiragino Sans", sans-serif;
+  line-height: 1.7;
+  padding: 12px;
+}

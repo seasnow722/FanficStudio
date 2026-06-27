@@ -134,6 +134,12 @@ let dictionaryLayerMode = "base";
 let leftPaneWidth = data.leftPaneWidth;
 let rightPaneWidth = data.rightPaneWidth;
 
+//辞書用codemirror本体
+let dictionaryEditor = null;
+//今編集している辞書
+let currentDictionaryPage = null;
+
+
 
 // ==============================
 // 3. HTML要素取得
@@ -212,6 +218,9 @@ const rightResizer =
   document.getElementById("right-resizer");
 
 const sidebar = document.querySelector(".sidebar");
+
+
+
 
 
 // ==============================
@@ -596,9 +605,13 @@ function updateSideInfo(page) {
       本文を編集
     </button>
 
-<div class="side-dictionary-body">
-  ${renderDictionaryBodyWithAnnotations(page)}
-</div>        <label>関連イベント</label>
+    <div id="dictionary-editor"></div>
+
+    <div class="side-dictionary-body hidden">
+      ${renderDictionaryBodyWithAnnotations(page)}
+    </div>
+
+        <label>関連イベント</label>
     <div class="side-related-events">
       <ul>
         ${relatedEventsHtml}
@@ -612,7 +625,9 @@ function updateSideInfo(page) {
   `;
 
   setupSideEditor(page);
+  initDictionaryEditor(page);
   setupWikiLinkClicks(sideInfo);
+
 }
 
 //updateSideInfo(page)で作ったHTMLにイベントを付ける
@@ -1836,6 +1851,7 @@ function ensurePageLineIds(page) {
 // ==============================
 // 9. codeMirror系
 // ==============================
+//小説本文用
 function initNovelEditor() {
   novelEditor = new EditorView({
     doc: "",
@@ -1862,6 +1878,40 @@ function initNovelEditor() {
   });
 }
 
+//辞書ページ用
+function initDictionaryEditor(page) {
+  const dictionaryEditorElement =
+    document.getElementById("dictionary-editor");
+
+  if (!dictionaryEditorElement) return;
+
+  if (dictionaryEditor) {
+    dictionaryEditor.destroy();
+    dictionaryEditor = null;
+  }
+
+  currentDictionaryPage = page;
+
+  dictionaryEditor = new EditorView({
+    doc: page.body,
+    parent: dictionaryEditorElement,
+    extensions: [
+      EditorView.lineWrapping
+    ],
+
+    dispatch: (transaction) => {
+      dictionaryEditor.update([transaction]);
+
+      if (transaction.docChanged) {
+        currentDictionaryPage.body =
+          dictionaryEditor.state.doc.toString();
+
+        ensurePageLineIds(currentDictionaryPage);
+        saveData();
+      }
+    }
+  });
+}
 
 
 // ==============================
