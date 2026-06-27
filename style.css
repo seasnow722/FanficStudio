@@ -624,13 +624,6 @@ textarea {
   padding: 16px;
 }
 
-.main-page {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
 #novel-panel {
   flex: 1;
   min-height: 0;
@@ -651,13 +644,6 @@ textarea {
 
 #editor .cm-scroller {
   overflow: auto;
-}
-
-.main-page {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
 }
 
 #novel-panel {
@@ -937,4 +923,153 @@ body.right-collapsed #toggle-right-pane-button {
 
 .cm-source-button:hover {
   background: #c9b79f;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+}
+
+.top-bar {
+  height: 60px;
+  box-sizing: border-box;
+}
+
+.app-layout {
+  height: calc(100vh - 60px);
+  overflow: hidden;
+}
+
+.sidebar,
+.detail {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.main-page {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.main-page {
+  height: auto;
+}
+
+.tab-panel {
+  min-height: 0;
+}
+
+#novel-panel {
+  overflow: hidden;
+}
+
+#editor {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#editor .cm-editor {
+  height: 100%;
+}
+
+#editor .cm-scroller {
+  overflow: auto;
+}
+
+#timeline-panel,
+#flags-panel,
+#relation-panel {
+  overflow-y: auto;
+}
+
+.inline-form-box {
+  margin: 12px 0;
+  padding: 12px;
+  background: #f7efe3;
+  border: 1px solid #ddd0bd;
+  border-radius: 8px;
+}
+
+.inline-form-box label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: bold;
+}
+
+.inline-form-textarea {
+  width: 100%;
+  min-height: 90px;
+  padding: 8px;
+  box-sizing: border-box;
+  border: 1px solid #ddd0bd;
+  border-radius: 6px;
+  font-family: inherit;
+  line-height: 1.6;
+  resize: vertical;
+  background: #fffaf3;
+}
+
+.inline-form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.cm-line-action-widget {
+  display: inline-flex;
+  margin-left: 8px;
+}
+
+.cm-line-action-button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid #d8c8b4;
+  background: #fffaf3;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0.4;
+}
+
+.cm-line-action-button:hover {
+  opacity: 1;
+  background: #ead7b7;
+}
+
+.cm-line-menu-widget {
+  margin: 6px 0 6px 24px;
+  padding: 6px;
+  display: flex;
+  gap: 6px;
+  background: #f7efe3;
+  border: 1px solid #ddd0bd;
+  border-radius: 8px;
+}
+
+.cm-line-menu-button {
+  padding: 4px 8px;
+  border: none;
+  background: #ddd0bd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.cm-line-menu-button:hover {
+  background: #c9b79f;
+}
+
+.cm-line-action-widget {
+  display: flex;
+  justify-content: flex-end;
+  margin: 2px 0 4px;
+  user-select: none;
 }

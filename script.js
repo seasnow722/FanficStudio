@@ -22,20 +22,6 @@ import {  Decoration,  WidgetType } from "@codemirror/view";
 // 小説本文用CodeMirror本体を入れる箱を先に作る
 let novelEditor = null;
 
-// HTMLの読み込みが終わったら、CodeMirrorを作る
-/*window.addEventListener("DOMContentLoaded", () => {
-  const editorElement =
-    document.getElementById("editor");
-
-  novelEditor = new EditorView({
-    doc: "",
-    parent: editorElement
-  });
-
-  console.log("CodeMirror本文エディタ作成");
-});*/
-
-
 
 // ==============================
 // 1. サンプルデータ
@@ -140,6 +126,8 @@ let dictionaryEditor = null;
 //今編集している辞書
 let currentDictionaryPage = null;
 
+// 辞書本文の行下に出す一時メニュー
+let activeLineMenu = null;
 
 
 // ==============================
@@ -220,7 +208,11 @@ const rightResizer =
 
 const sidebar = document.querySelector(".sidebar");
 
-
+//小説本文テキスト保存
+const exportCurrentNovelTextButton =
+  document.getElementById("export-current-novel-text-button");
+const exportAllNovelsTextButton =
+  document.getElementById("export-all-novels-text-button");
 
 
 // ==============================
@@ -228,6 +220,8 @@ const sidebar = document.querySelector(".sidebar");
 // ==============================
 //何か変更したときここで保存する
 function saveData() {
+  updateSaveStatus("🟡 保存中...", "saving");
+
   localStorage.setItem(
     "fanficStudioData",
     JSON.stringify({
@@ -239,7 +233,6 @@ function saveData() {
     })
   );
 
-  //保存中のアイコンを変える（0.3秒保存済みアイコンは遅らせる）
   if (saveStatusTimer) {
     clearTimeout(saveStatusTimer);
   }
@@ -378,6 +371,37 @@ function downloadJson(filename, data) {
   URL.revokeObjectURL(url);
 }
 
+//小説本文テキスト保存
+function downloadText(filename, text) {
+  const blob = new Blob(
+    [text],
+    {
+      type: "text/plain"
+    }
+  );
+
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+
+  URL.revokeObjectURL(url);
+}
+
+function buildAllNovelsText() {
+  return novels
+    .map((novel) => {
+      return `====================
+${novel.title}
+====================
+
+${novel.body}`;
+    })
+    .join("\n\n\n");
+}
+
 //保存中などのステータスを表示する
 function updateSaveStatus(text, className = "") {
   
@@ -484,13 +508,7 @@ function updateSideInfo(page) {
 
     <div id="dictionary-editor"></div>
 
-    <button id="add-source-current-line-button" class="side-button">
-      選択行に原作出典を追加
-    </button>
-
-    <button id="add-annotation-current-line-button" class="side-button">
-      選択行に作品注釈を追加
-    </button>
+    <div id="side-inline-form-area"></div>
 
         <label>関連イベント</label>
     <div class="side-related-events">
@@ -513,6 +531,327 @@ function updateSideInfo(page) {
 
 }
 
+function showAnnotationForm(page, lineInfo) {
+  const formArea =
+    document.getElementById("side-inline-form-area");
+
+  if (!formArea) return;
+
+  formArea.innerHTML = `
+    <div class="inline-form-box">
+      <label>作品注釈</label>
+
+      <textarea
+        id="inline-annotation-body"
+        class="inline-form-textarea"
+        placeholder="この行に追加する作品注釈を入力"
+      ></textarea>
+
+      <div class="inline-form-actions">
+        <button id="save-inline-annotation-button" class="side-button">
+          保存
+        </button>
+
+        <button id="cancel-inline-form-button" class="side-button">
+          キャンセル
+        </button>
+      </div>
+    </div>
+  `;
+
+  const bodyInput =
+    document.getElementById("inline-annotation-body");
+
+  const saveButton =
+    document.getElementById("save-inline-annotation-button");
+
+  const cancelButton =
+    document.getElementById("cancel-inline-form-button");
+
+  bodyInput.focus();
+
+  saveButton.addEventListener("click", () => {
+    const body = bodyInput.value.trim();
+
+    if (!body) {
+      alert("注釈本文を入力してください。");
+      return;
+    }
+
+    const work = getCurrentWork();
+    if (!work) return;
+
+    if (!work.annotations) {
+      work.annotations = [];
+    }
+
+    work.annotations.push({
+      id: createPageId(),
+      pageId: page.id,
+      lineIndex: lineInfo.lineIndex,
+      lineId: lineInfo.lineId,
+      body
+    });
+
+    activeLineMenu = null;
+
+    updateSideInfo(page);
+    saveData();
+    dictionaryEditor.focus();
+  });
+
+  cancelButton.addEventListener("click", () => {
+    activeLineMenu = null;
+
+    formArea.innerHTML = "";
+
+    updateSideInfo(page);
+  });
+}
+
+function showSourceForm(page, lineInfo) {
+  const formArea =
+    document.getElementById("side-inline-form-area");
+
+  if (!formArea) return;
+
+  formArea.innerHTML = `
+    <div class="inline-form-box">
+      <label>原作出典</label>
+
+      <textarea
+        id="inline-source-body"
+        class="inline-form-textarea"
+        placeholder="この行の原作出典を入力"
+      ></textarea>
+
+      <div class="inline-form-actions">
+        <button id="save-inline-source-button" class="side-button">
+          保存
+        </button>
+
+        <button id="cancel-inline-form-button" class="side-button">
+          キャンセル
+        </button>
+      </div>
+    </div>
+  `;
+
+  const sourceInput =
+    document.getElementById("inline-source-body");
+
+  const saveButton =
+    document.getElementById("save-inline-source-button");
+
+  const cancelButton =
+    document.getElementById("cancel-inline-form-button");
+
+  sourceInput.focus();
+
+  saveButton.addEventListener("click", () => {
+    const source = sourceInput.value.trim();
+
+    if (!source) {
+      alert("出典を入力してください。");
+      return;
+    }
+
+    if (!page.sources) {
+      page.sources = [];
+    }
+
+    page.sources.push({
+      id: createPageId(),
+      lineIndex: lineInfo.lineIndex,
+      lineId: lineInfo.lineId,
+      source
+    });
+
+    activeLineMenu = null;
+
+    updateSideInfo(page);
+    saveData();
+    dictionaryEditor.focus();
+  });
+
+  cancelButton.addEventListener("click", () => {
+    activeLineMenu = null;
+
+    formArea.innerHTML = "";
+
+    updateSideInfo(page);
+  });
+}
+
+function showLineActionMenu(page, lineInfo) {
+  const formArea =
+    document.getElementById("side-inline-form-area");
+
+  if (!formArea) return;
+
+  formArea.innerHTML = `
+    <div class="inline-form-box">
+      <label>この行に追加</label>
+
+      <div class="inline-form-actions">
+        <button id="choose-annotation-button" class="side-button">
+          作品注釈
+        </button>
+
+        <button id="choose-source-button" class="side-button">
+          原作出典
+        </button>
+
+        <button id="cancel-inline-form-button" class="side-button">
+          キャンセル
+        </button>
+      </div>
+    </div>
+  `;
+
+  const annotationButton =
+    document.getElementById("choose-annotation-button");
+
+  const sourceButton =
+    document.getElementById("choose-source-button");
+
+  const cancelButton =
+    document.getElementById("cancel-inline-form-button");
+
+  annotationButton.addEventListener("click", () => {
+    showAnnotationForm(page, lineInfo);
+  });
+
+  sourceButton.addEventListener("click", () => {
+    showSourceForm(page, lineInfo);
+  });
+
+  cancelButton.addEventListener("click", () => {
+    formArea.innerHTML = "";
+  });
+}
+
+//注釈編集ダイアログ
+function showEditAnnotationForm(page, annotation) {
+  const formArea =
+    document.getElementById("side-inline-form-area");
+
+  if (!formArea) return;
+
+  formArea.innerHTML = `
+    <div class="inline-form-box">
+      <label>作品注釈を編集</label>
+
+      <textarea
+        id="inline-edit-annotation-body"
+        class="inline-form-textarea"
+      >${annotation.body}</textarea>
+
+      <div class="inline-form-actions">
+        <button id="save-edit-annotation-button" class="side-button">
+          保存
+        </button>
+
+        <button id="cancel-inline-form-button" class="side-button">
+          キャンセル
+        </button>
+      </div>
+    </div>
+  `;
+
+  const bodyInput =
+    document.getElementById("inline-edit-annotation-body");
+
+  const saveButton =
+    document.getElementById("save-edit-annotation-button");
+
+  const cancelButton =
+    document.getElementById("cancel-inline-form-button");
+
+  bodyInput.focus();
+
+  saveButton.addEventListener("click", () => {
+    const newBody = bodyInput.value.trim();
+
+    if (!newBody) {
+      alert("注釈本文を入力してください。");
+      return;
+    }
+
+    annotation.body = newBody;
+
+    updateSideInfo(page);
+    saveData();
+
+    dictionaryEditor.focus();
+  });
+
+  cancelButton.addEventListener("click", () => {
+    formArea.innerHTML = "";
+  });
+}
+
+//出典編集ダイアログ
+function showEditSourceForm(page, sourceItem) {
+  const formArea =
+    document.getElementById("side-inline-form-area");
+
+  if (!formArea) return;
+
+  formArea.innerHTML = `
+    <div class="inline-form-box">
+      <label>原作出典を編集</label>
+
+      <textarea
+        id="inline-edit-source-body"
+        class="inline-form-textarea"
+      >${sourceItem.source}</textarea>
+
+      <div class="inline-form-actions">
+        <button id="save-edit-source-button" class="side-button">
+          保存
+        </button>
+
+        <button id="cancel-inline-form-button" class="side-button">
+          キャンセル
+        </button>
+      </div>
+    </div>
+  `;
+
+  const sourceInput =
+    document.getElementById("inline-edit-source-body");
+
+  const saveButton =
+    document.getElementById("save-edit-source-button");
+
+  const cancelButton =
+    document.getElementById("cancel-inline-form-button");
+
+  sourceInput.focus();
+
+  saveButton.addEventListener("click", () => {
+    const newSource = sourceInput.value.trim();
+
+    if (!newSource) {
+      alert("出典を入力してください。");
+      return;
+    }
+
+    sourceItem.source = newSource;
+
+    updateSideInfo(page);
+    saveData();
+
+    dictionaryEditor.focus();
+  });
+
+  cancelButton.addEventListener("click", () => {
+    formArea.innerHTML = "";
+  });
+}
+
+
 //updateSideInfo(page)で作ったHTMLにイベントを付ける
 function setupSideEditor(page) {
   const sideTitle = document.getElementById("side-title");
@@ -521,10 +860,6 @@ function setupSideEditor(page) {
   //const sideBody = document.getElementById("side-body");
   const moveUpButton = document.getElementById("move-page-up");
   const moveDownButton = document.getElementById("move-page-down");
-  const addAnnotationCurrentLineButton =
-    document.getElementById("add-annotation-current-line-button");
-  const addSourceCurrentLineButton =
-  document.getElementById("add-source-current-line-button");
 
   sideTitle.addEventListener("input", () => {
     page.title = sideTitle.value;
@@ -546,61 +881,6 @@ function setupSideEditor(page) {
 
     saveData();
   });
-
-// 作品注釈追加用
-if (addAnnotationCurrentLineButton) {
-  addAnnotationCurrentLineButton.addEventListener("click", () => {
-    const lineInfo = getCurrentDictionaryLineInfo();
-    if (!lineInfo) return;
-
-    const body = prompt("この行に追加する作品注釈を入力してください");
-    if (!body) return;
-
-    const work = getCurrentWork();
-    if (!work) return;
-
-    if (!work.annotations) {
-      work.annotations = [];
-    }
-
-    work.annotations.push({
-      id: createPageId(),
-      pageId: page.id,
-      lineIndex: lineInfo.lineIndex,
-      lineId: lineInfo.lineId,
-      body
-    });
-
-    saveData();
-    updateSideInfo(page);
-  });
-}
-
-// 原作出典追加用
-// 原作出典追加用
-if (addSourceCurrentLineButton) {
-  addSourceCurrentLineButton.addEventListener("click", () => {
-    const lineInfo = getCurrentDictionaryLineInfo();
-    if (!lineInfo) return;
-
-    const source = prompt("この行の原作出典を入力してください");
-    if (!source) return;
-
-    if (!page.sources) {
-      page.sources = [];
-    }
-
-    page.sources.push({
-      id: createPageId(),
-      lineIndex: lineInfo.lineIndex,
-      lineId: lineInfo.lineId,
-      source
-    });
-
-    saveData();
-    updateSideInfo(page);
-  });
-}
 
 moveUpButton.addEventListener("click", () => {
   movePage(page, -1);
@@ -1530,6 +1810,41 @@ exportWorkButton.addEventListener("click", () => {
   });
 });
 
+// 現在開いている小説本文をtxt書き出し
+exportCurrentNovelTextButton.addEventListener("click", () => {
+  exportMenu.classList.add("hidden");
+
+  const novel = getCurrentNovel();
+
+  if (!novel) {
+    alert("書き出す本文がありません。");
+    return;
+  }
+
+  downloadText(
+    `${novel.title}.txt`,
+    novel.body
+  );
+});
+
+//小説本文全文書き出し
+exportAllNovelsTextButton.addEventListener("click", () => {
+  exportMenu.classList.add("hidden");
+
+  if (novels.length === 0) {
+    alert("書き出す本文がありません。");
+    return;
+  }
+
+  const work = getCurrentWork();
+  const workTitle = work ? work.title : "novels";
+
+  downloadText(
+    `${workTitle}_本文まとめ.txt`,
+    buildAllNovelsText()
+  );
+});
+
 // アンドゥボタン
 undoButton.addEventListener("click", () => {
   if (!novelEditor) return;
@@ -1616,7 +1931,6 @@ function initNovelEditor() {
       novelEditor.update([transaction]);
 
       if (transaction.docChanged) {
-        updateSaveStatus("🟡 保存中...", "saving");
         const novel = getCurrentNovel();
         if (!novel) return;
 
@@ -1762,6 +2076,95 @@ class SourceWidget extends WidgetType {
   }
 }
 
+class AddLineActionWidget extends WidgetType {
+  constructor(page, lineIndex, lineId) {
+    super();
+    this.page = page;
+    this.lineIndex = lineIndex;
+    this.lineId = lineId;
+  }
+
+toDOM() {
+  const wrapper = document.createElement("div");
+  wrapper.className = "cm-line-action-widget";
+  wrapper.contentEditable = "false";
+
+  const addButton = document.createElement("button");
+  addButton.className = "cm-line-action-button";
+  addButton.type = "button";
+  addButton.tabIndex = -1;
+  addButton.textContent = "＋";
+  addButton.title = "この行に追加";
+
+  addButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    activeLineMenu = {
+      lineIndex: this.lineIndex,
+      lineId: this.lineId
+    };
+
+    updateSideInfo(this.page);
+  });
+
+  wrapper.appendChild(addButton);
+
+  return wrapper;
+}
+}
+
+class LineActionMenuWidget extends WidgetType {
+  constructor(page, lineIndex, lineId) {
+    super();
+    this.page = page;
+    this.lineIndex = lineIndex;
+    this.lineId = lineId;
+  }
+
+  toDOM() {
+    const wrapper = document.createElement("div");
+    wrapper.className = "cm-line-menu-widget";
+
+    const annotationButton = document.createElement("button");
+    annotationButton.className = "cm-line-menu-button";
+    annotationButton.textContent = "作品注釈";
+
+    annotationButton.addEventListener("click", () => {
+      showAnnotationForm(this.page, {
+        lineIndex: this.lineIndex,
+        lineId: this.lineId
+      });
+    });
+
+    const sourceButton = document.createElement("button");
+    sourceButton.className = "cm-line-menu-button";
+    sourceButton.textContent = "原作出典";
+
+    sourceButton.addEventListener("click", () => {
+      showSourceForm(this.page, {
+        lineIndex: this.lineIndex,
+        lineId: this.lineId
+      });
+    });
+
+const cancelButton = document.createElement("button");
+cancelButton.className = "cm-line-menu-button";
+cancelButton.textContent = "キャンセル";
+
+cancelButton.addEventListener("click", () => {
+  activeLineMenu = null;
+  updateSideInfo(this.page);
+});
+
+wrapper.appendChild(annotationButton);
+wrapper.appendChild(sourceButton);
+wrapper.appendChild(cancelButton);
+
+return wrapper;
+  }
+}
+
 //注釈編集ボタン
 function editAnnotation(annotationId) {
   const work = getCurrentWork();
@@ -1776,17 +2179,7 @@ function editAnnotation(annotationId) {
 
   if (!annotation) return;
 
-  const newBody = prompt(
-    "注釈を編集してください",
-    annotation.body
-  );
-
-  if (!newBody) return;
-
-  annotation.body = newBody;
-
-  saveData();
-  updateSideInfo(page);
+  showEditAnnotationForm(page, annotation);
 }
 
 //注釈削除ボタン
@@ -1820,17 +2213,7 @@ function editSource(sourceId) {
 
   if (!sourceItem) return;
 
-  const newSource = prompt(
-    "出典を編集してください",
-    sourceItem.source
-  );
-
-  if (!newSource) return;
-
-  sourceItem.source = newSource;
-
-  saveData();
-  updateSideInfo(page);
+  showEditSourceForm(page, sourceItem);
 }
 
 //出典削除
@@ -1867,13 +2250,37 @@ function buildDictionaryDecorations(view) {
   if (!page.sources) {
     page.sources = [];
   }
+
   ensurePageLineIds(page);
   console.log("page.sources", page.sources);
 
-  const lines = page.body.split("\n");
+  const lines =
+  view.state.doc.toString().split("\n");
 
   lines.forEach((line, index) => {
   const lineId = page.lineIds[index];
+  const cmLine = view.state.doc.line(index + 1);
+
+if (
+  activeLineMenu &&
+  activeLineMenu.lineId === lineId
+) {
+  widgets.push(
+    Decoration.widget({
+      widget: new LineActionMenuWidget(page, index, lineId),
+      side: 1,
+      block: true
+    }).range(cmLine.to)
+  );
+} else {
+  widgets.push(
+    Decoration.widget({
+      widget: new AddLineActionWidget(page, index, lineId),
+      side: 1,
+      block: true
+    }).range(cmLine.to)
+  );
+}
 
   const sources = page.sources || [];
 
@@ -1894,27 +2301,25 @@ function buildDictionaryDecorations(view) {
     );
   });
 
-  if (lineSources.length === 0 && annotations.length === 0) return;
+lineSources.forEach((sourceItem) => {
+  widgets.push(
+    Decoration.widget({
+      widget: new SourceWidget(sourceItem),
+      side: 1,
+      block: true
+    }).range(cmLine.to)
+  );
+});
 
-  const cmLine = view.state.doc.line(index + 1);
-
-  lineSources.forEach((sourceItem) => {
-    widgets.push(
-      Decoration.widget({
-        widget: new SourceWidget(sourceItem),
-        side: 1
-      }).range(cmLine.to)
-    );
-  });
-
-  annotations.forEach((annotation) => {
-    widgets.push(
-      Decoration.widget({
-        widget: new AnnotationWidget(annotation),
-        side: 1
-      }).range(cmLine.to)
-    );
-  });
+annotations.forEach((annotation) => {
+  widgets.push(
+    Decoration.widget({
+      widget: new AnnotationWidget(annotation),
+      side: 1,
+      block: true
+    }).range(cmLine.to)
+  );
+});
 });
 
   return Decoration.set(widgets);
