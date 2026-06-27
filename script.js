@@ -17,6 +17,7 @@
 // codemirrorのEditorViewを持ってくる
 import { EditorView } from "codemirror";
 import { undo, redo } from "@codemirror/commands";
+import {  Decoration,  WidgetType } from "@codemirror/view";
 
 // 小説本文用CodeMirror本体を入れる箱を先に作る
 let novelEditor = null;
@@ -218,7 +219,6 @@ const rightResizer =
   document.getElementById("right-resizer");
 
 const sidebar = document.querySelector(".sidebar");
-
 
 
 
@@ -445,126 +445,6 @@ function showPage(pageId) {
   renderPageList();
 }
 
-// 辞書本文を行ごとのHTMLに変換する
-function renderDictionaryBodyWithAnnotations(page) {
-  const work = getCurrentWork();
-  if (!work) return "";
-
-  if (!work.annotations) {
-    work.annotations = [];
-  }
-
-  ensurePageLineIds(page);
-  const lines = page.body.split("\n");
-
-
-return lines.map((line, index) => {
-  console.log(index, page.lineIds[index]);
-  const lineId = page.lineIds[index];
-
-  const sources = page.sources || [];
-
-  const lineSources = sources.filter((sourceItem) => {
-    return (
-      sourceItem.lineId === lineId ||
-      sourceItem.lineIndex === index
-    );
-  });
-
-const sourceHtml = lineSources.map((sourceItem) => {
-  return `
-    <div class="base-source">
-      <div>出典：${convertLinksToHtml(sourceItem.source)}</div>
-
-      <div class="source-actions">
-      <button class="edit-source-button" data-id="${sourceItem.id}" title="出典を編集">
-        ✎
-      </button>
-      <button class="delete-source-button" data-id="${sourceItem.id}" title="出典を削除">
-        ×
-      </button>
-      </div>
-    </div>
-  `;
-}).join("");
-
-
-    const annotations = work.annotations.filter((annotation) => {
-    return (
-      annotation.pageId === page.id &&
-      (
-        annotation.lineId === lineId ||
-        annotation.lineIndex === index
-      )
-    );
-});
-
-const annotationHtml = annotations.map((annotation) => {
-  return `
-    <div class="line-annotation">
-    <div class="annotation-body">
-      ${convertLinksToHtml(annotation.body)}
-    </div>
-
-    ${
-    annotation.source
-    ? `<div class="annotation-source">出典：${convertLinksToHtml(annotation.source)}</div>`
-    : ""
-    }
-
-      <div class="annotation-actions">
-      <button class="edit-annotation-button" data-id="${annotation.id}" title="注釈を編集">
-        ✎
-      </button>
-      <button class="delete-annotation-button" data-id="${annotation.id}" title="注釈を削除">
-        ×
-      </button>
-      </div>
-    </div>
-  `;
-}).join("");
-
-return `
-
-  <div class="dictionary-line">
-  <textarea
-    class="dictionary-line-input"
-    data-line-index="${index}"
-    data-line-id="${page.lineIds[index]}"
-    >${line}</textarea>
-
-    ${sourceHtml}
-
-    <button
-      class="add-source-button"
-      data-line-index="${index}"
-      data-line-id="${lineId}"
-      title="原作出典を追加"
-      >
-      出
-    </button>
-
-    ${
-      dictionaryLayerMode === "overlay"
-      ? `
-        <button
-          class="add-annotation-button"
-          data-line-index="${index}"
-          data-line-id="${lineId}"
-          title="作品注釈を追加"
-          >
-          ＋
-        </button>
-
-          ${annotationHtml}
-        `
-      : ""
-  }
-</div>
-`;
-  }).join("");
-}
-
 //HTMLを作る
 function updateSideInfo(page) {
     const work = getCurrentWork();
@@ -601,15 +481,16 @@ function updateSideInfo(page) {
     <input id="side-tags" class="side-input" value="${page.tags.join(", ")}">
 
     <label>本文</label>
-    <button id="edit-page-body-button" class="side-button">
-      本文を編集
-    </button>
 
     <div id="dictionary-editor"></div>
 
-    <div class="side-dictionary-body hidden">
-      ${renderDictionaryBodyWithAnnotations(page)}
-    </div>
+    <button id="add-source-current-line-button" class="side-button">
+      選択行に原作出典を追加
+    </button>
+
+    <button id="add-annotation-current-line-button" class="side-button">
+      選択行に作品注釈を追加
+    </button>
 
         <label>関連イベント</label>
     <div class="side-related-events">
@@ -623,6 +504,8 @@ function updateSideInfo(page) {
       <button id="move-page-down" class="side-button">↓ 下へ</button>
     </div>
   `;
+
+  
 
   setupSideEditor(page);
   initDictionaryEditor(page);
@@ -638,7 +521,10 @@ function setupSideEditor(page) {
   //const sideBody = document.getElementById("side-body");
   const moveUpButton = document.getElementById("move-page-up");
   const moveDownButton = document.getElementById("move-page-down");
-  const editPageBodyButton = document.getElementById("edit-page-body-button");
+  const addAnnotationCurrentLineButton =
+    document.getElementById("add-annotation-current-line-button");
+  const addSourceCurrentLineButton =
+  document.getElementById("add-source-current-line-button");
 
   sideTitle.addEventListener("input", () => {
     page.title = sideTitle.value;
@@ -661,147 +547,14 @@ function setupSideEditor(page) {
     saveData();
   });
 
-  const dictionaryLineInputs =
-  sideInfo.querySelectorAll(".dictionary-line-input");
+// 作品注釈追加用
+if (addAnnotationCurrentLineButton) {
+  addAnnotationCurrentLineButton.addEventListener("click", () => {
+    const lineInfo = getCurrentDictionaryLineInfo();
+    if (!lineInfo) return;
 
-dictionaryLineInputs.forEach((input) => {
-  input.addEventListener("input", () => {
-    const lineIndex = Number(input.dataset.lineIndex);
-    //const lineId = button.dataset.lineId;
-
-    const lines = page.body.split("\n");
-
-    lines[lineIndex] = input.value;
-
-    page.body = lines.join("\n");
-
-    saveData();
-  });
-});
-
-  editPageBodyButton.addEventListener("click", () => {
-  const newBody = prompt("辞書本文を編集してください", page.body);
-
-  if (newBody === null) return;
-
-  page.body = newBody;
-
-  saveData();
-  updateSideInfo(page);
-  renderPageList();
-  });
-
-  //sideBody.addEventListener("input", () => {
-  //  page.body = sideBody.value;
-  //  saveData();
-  //});
-
-  moveUpButton.addEventListener("click", () => {
-  movePage(page, -1);
-  });
-
-  moveDownButton.addEventListener("click", () => {
-  movePage(page, 1);
-  });
-
-  // 原作出典ボタンを取得する
-  const sourceButtons = sideInfo.querySelectorAll(".add-source-button");
-
-  // 原作出典の編集ボタンを取得する
-  const editSourceButtons = sideInfo.querySelectorAll(".edit-source-button");
-
-  // 原作出典の削除ボタンを取得する
-  const deleteSourceButtons = sideInfo.querySelectorAll(".delete-source-button");
-
-  // 原作出典ボタンを表示する
-  // ボタンをクリックしたときテキストボックスを出す
-  sourceButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-
-    const lineIndex =
-      Number(button.dataset.lineIndex);
-      const lineId = button.dataset.lineId;
-
-    const source = prompt(
-      "この行の出典を入力してください"
-    );
-
-    if (!source) return;
-
-    //保存する
-    if (!page.sources) {
-    page.sources = [];
-    }
-
-    //出典データを配列に追加する
-    page.sources.push({
-      id: createPageId(),
-      lineIndex,
-      lineId,
-      source
-    });
-
-    //localStorageに保存する
-    saveData();
-    //今表示されている右サイドビューを再描画する
-    updateSideInfo(page);
-  });
-});
-
-  //原作出典を編集する
-  editSourceButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-    const sourceId = button.dataset.id;
-
-    if (!page.sources) {
-      page.sources = [];
-    }
-
-    const sourceItem = page.sources.find((s) => s.id === sourceId);
-    if (!sourceItem) return;
-
-    const newSource = prompt("出典を編集してください", sourceItem.source);
-    if (!newSource) return;
-
-    sourceItem.source = newSource;
-
-    saveData();
-    updateSideInfo(page);
-  });
-});
-
-  //原作出典を削除する
-  deleteSourceButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-    const sourceId = button.dataset.id;
-
-    if (!page.sources) {
-      page.sources = [];
-    }
-
-    const ok = confirm("この出典を削除しますか？");
-    if (!ok) return;
-
-    page.sources = page.sources.filter((s) => s.id !== sourceId);
-
-    saveData();
-    updateSideInfo(page);
-  });
-});
-
-  // ＋注釈ボタンを取得する
-  const annotationButtons = sideInfo.querySelectorAll(".add-annotation-button");
-
-
-annotationButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    const lineIndex = Number(button.dataset.lineIndex);
-    const lineId = button.dataset.lineId;
     const body = prompt("この行に追加する作品注釈を入力してください");
-
     if (!body) return;
-
-    const source = prompt("出典があれば入力してください（空欄OK）");
 
     const work = getCurrentWork();
     if (!work) return;
@@ -813,66 +566,51 @@ annotationButtons.forEach((button) => {
     work.annotations.push({
       id: createPageId(),
       pageId: page.id,
-      lineIndex,
-      lineId,
-      body,
+      lineIndex: lineInfo.lineIndex,
+      lineId: lineInfo.lineId,
+      body
+    });
+
+    saveData();
+    updateSideInfo(page);
+  });
+}
+
+// 原作出典追加用
+// 原作出典追加用
+if (addSourceCurrentLineButton) {
+  addSourceCurrentLineButton.addEventListener("click", () => {
+    const lineInfo = getCurrentDictionaryLineInfo();
+    if (!lineInfo) return;
+
+    const source = prompt("この行の原作出典を入力してください");
+    if (!source) return;
+
+    if (!page.sources) {
+      page.sources = [];
+    }
+
+    page.sources.push({
+      id: createPageId(),
+      lineIndex: lineInfo.lineIndex,
+      lineId: lineInfo.lineId,
       source
     });
 
     saveData();
     updateSideInfo(page);
   });
+}
+
+moveUpButton.addEventListener("click", () => {
+  movePage(page, -1);
 });
 
-// 注釈の編集ボタンを取得する
-const editAnnotationButtons = sideInfo.querySelectorAll(".edit-annotation-button");
-
-editAnnotationButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    const annotationId = button.dataset.id;
-
-    const work = getCurrentWork();
-    if (!work) return;
-
-    const annotation = work.annotations.find((a) => a.id === annotationId);
-    if (!annotation) return;
-
-    const newBody = prompt("注釈を編集してください", annotation.body);
-
-    if (!newBody) return;
-
-    const newSource = prompt("出典を編集してください（空欄OK）", annotation.source || "");
- 
-    annotation.body = newBody;
-    annotation.source = newSource || "";
-
-    saveData();
-    updateSideInfo(page);
-  });
+moveDownButton.addEventListener("click", () => {
+  movePage(page, 1);
 });
 
-// 注釈の削除ボタンを取得する
-const deleteAnnotationButtons = sideInfo.querySelectorAll(".delete-annotation-button");
-
-deleteAnnotationButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    const annotationId = button.dataset.id;
-
-    const work = getCurrentWork();
-    if (!work) return;
-
-    const ok = confirm("この注釈を削除しますか？");
-    if (!ok) return;
-
-    work.annotations = work.annotations.filter((a) => a.id !== annotationId);
-
-    saveData();
-    updateSideInfo(page);
-  });
-});
-  }
-
-
+}
 
 //左サイドバーに小説本文一覧と辞書ページ一覧を表示する
 function renderPageList() {
@@ -1851,6 +1589,20 @@ function ensurePageLineIds(page) {
 // ==============================
 // 9. codeMirror系
 // ==============================
+// 辞書CodeMirrorの中身を、現在の辞書ページデータに反映する
+function syncDictionaryEditorToPage() {
+  if (!dictionaryEditor) return;
+  if (!currentDictionaryPage) return;
+
+  currentDictionaryPage.body =
+    dictionaryEditor.state.doc.toString();
+
+  ensurePageLineIds(currentDictionaryPage);
+
+  saveData();
+  renderPageList();
+}
+
 //小説本文用
 function initNovelEditor() {
   novelEditor = new EditorView({
@@ -1893,25 +1645,310 @@ function initDictionaryEditor(page) {
   currentDictionaryPage = page;
 
   dictionaryEditor = new EditorView({
-    doc: page.body,
-    parent: dictionaryEditorElement,
-    extensions: [
-      EditorView.lineWrapping
-    ],
+  doc: page.body,
+  parent: dictionaryEditorElement,
+  extensions: [
+    EditorView.lineWrapping,
 
-    dispatch: (transaction) => {
-      dictionaryEditor.update([transaction]);
-
-      if (transaction.docChanged) {
-        currentDictionaryPage.body =
-          dictionaryEditor.state.doc.toString();
-
-        ensurePageLineIds(currentDictionaryPage);
-        saveData();
+    EditorView.decorations.compute(
+      ["doc"],
+      (state) => {
+        return buildDictionaryDecorations({
+          state
+        });
       }
+    )
+  ],
+
+  dispatch: (transaction) => {
+    dictionaryEditor.update([transaction]);
+
+    if (transaction.docChanged) {
+      syncDictionaryEditorToPage();
     }
+  }
   });
 }
+
+// CodeMirrorの行間に表示する「注釈っぽい箱」
+class AnnotationWidget extends WidgetType {
+  constructor(annotation) {
+    super();
+    this.annotation = annotation;
+  }
+
+  toDOM() {
+    const wrapper = document.createElement("div");
+    wrapper.className = "cm-annotation-widget";
+
+    const body = document.createElement("div");
+    body.className = "cm-annotation-body";
+    body.textContent = this.annotation.body;
+
+    const actions = document.createElement("div");
+    actions.className = "cm-annotation-actions";
+
+    const editButton = document.createElement("button");
+    editButton.className = "cm-annotation-button";
+    editButton.textContent = "✎";
+    editButton.title = "注釈を編集";
+
+    editButton.addEventListener("click", () => {
+      editAnnotation(this.annotation.id);
+    });
+
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "cm-annotation-button";
+    deleteButton.textContent = "×";
+    deleteButton.title = "注釈を削除";
+
+    deleteButton.addEventListener("click", () => {
+      deleteAnnotation(this.annotation.id);
+    });
+
+    actions.appendChild(editButton);
+    actions.appendChild(deleteButton);
+
+    wrapper.appendChild(body);
+    wrapper.appendChild(actions);
+
+    return wrapper;
+  }
+  
+}
+
+class SourceWidget extends WidgetType {
+  constructor(sourceItem) {
+    super();
+    this.sourceItem = sourceItem;
+  }
+
+  toDOM() {
+    const wrapper = document.createElement("div");
+    wrapper.className = "cm-source-widget";
+
+    const body = document.createElement("div");
+    body.className = "cm-source-body";
+    body.textContent = `出典：${this.sourceItem.source}`;
+
+    const actions = document.createElement("div");
+    actions.className = "cm-source-actions";
+
+    const editButton = document.createElement("button");
+    editButton.className = "cm-source-button";
+    editButton.textContent = "✎";
+    editButton.title = "出典を編集";
+
+    editButton.addEventListener("click", () => {
+      editSource(this.sourceItem.id);
+    });
+
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "cm-source-button";
+    deleteButton.textContent = "×";
+    deleteButton.title = "出典を削除";
+
+    deleteButton.addEventListener("click", () => {
+      deleteSource(this.sourceItem.id);
+    });
+
+    actions.appendChild(editButton);
+    actions.appendChild(deleteButton);
+
+    wrapper.appendChild(body);
+    wrapper.appendChild(actions);
+
+    return wrapper;
+  }
+}
+
+//注釈編集ボタン
+function editAnnotation(annotationId) {
+  const work = getCurrentWork();
+  const page = currentDictionaryPage;
+
+  if (!work) return;
+  if (!page) return;
+  if (!work.annotations) return;
+
+  const annotation =
+    work.annotations.find((a) => a.id === annotationId);
+
+  if (!annotation) return;
+
+  const newBody = prompt(
+    "注釈を編集してください",
+    annotation.body
+  );
+
+  if (!newBody) return;
+
+  annotation.body = newBody;
+
+  saveData();
+  updateSideInfo(page);
+}
+
+//注釈削除ボタン
+function deleteAnnotation(annotationId) {
+  const work = getCurrentWork();
+  const page = currentDictionaryPage;
+
+  if (!work) return;
+  if (!page) return;
+  if (!work.annotations) return;
+
+  const ok = confirm("この注釈を削除しますか？");
+  if (!ok) return;
+
+  work.annotations =
+    work.annotations.filter((a) => a.id !== annotationId);
+
+  saveData();
+  updateSideInfo(page);
+}
+
+//出典編集
+function editSource(sourceId) {
+  const page = currentDictionaryPage;
+
+  if (!page) return;
+  if (!page.sources) return;
+
+  const sourceItem =
+    page.sources.find((s) => s.id === sourceId);
+
+  if (!sourceItem) return;
+
+  const newSource = prompt(
+    "出典を編集してください",
+    sourceItem.source
+  );
+
+  if (!newSource) return;
+
+  sourceItem.source = newSource;
+
+  saveData();
+  updateSideInfo(page);
+}
+
+//出典削除
+function deleteSource(sourceId) {
+  const page = currentDictionaryPage;
+
+  if (!page) return;
+  if (!page.sources) return;
+
+  const ok = confirm("この出典を削除しますか？");
+  if (!ok) return;
+
+  page.sources =
+    page.sources.filter((s) => s.id !== sourceId);
+
+  saveData();
+  updateSideInfo(page);
+}
+
+// 辞書CodeMirrorに表示するDecorationを作る
+function buildDictionaryDecorations(view) {
+  const widgets = [];
+
+  const page = currentDictionaryPage;
+  const work = getCurrentWork();
+
+  if (!page) return Decoration.none;
+  if (!work) return Decoration.none;
+
+  if (!work.annotations) {
+    work.annotations = [];
+  }
+
+  if (!page.sources) {
+    page.sources = [];
+  }
+  ensurePageLineIds(page);
+  console.log("page.sources", page.sources);
+
+  const lines = page.body.split("\n");
+
+  lines.forEach((line, index) => {
+  const lineId = page.lineIds[index];
+
+  const sources = page.sources || [];
+
+  const lineSources = sources.filter((sourceItem) => {
+    return (
+      sourceItem.lineId === lineId ||
+      sourceItem.lineIndex === index
+    );
+  });
+
+  const annotations = work.annotations.filter((annotation) => {
+    return (
+      annotation.pageId === page.id &&
+      (
+        annotation.lineId === lineId ||
+        annotation.lineIndex === index
+      )
+    );
+  });
+
+  if (lineSources.length === 0 && annotations.length === 0) return;
+
+  const cmLine = view.state.doc.line(index + 1);
+
+  lineSources.forEach((sourceItem) => {
+    widgets.push(
+      Decoration.widget({
+        widget: new SourceWidget(sourceItem),
+        side: 1
+      }).range(cmLine.to)
+    );
+  });
+
+  annotations.forEach((annotation) => {
+    widgets.push(
+      Decoration.widget({
+        widget: new AnnotationWidget(annotation),
+        side: 1
+      }).range(cmLine.to)
+    );
+  });
+});
+
+  return Decoration.set(widgets);
+}
+
+// 辞書CodeMirrorで、今カーソルがある行番号を取得する
+function getCurrentDictionaryLineInfo() {
+  if (!dictionaryEditor) return null;
+  if (!currentDictionaryPage) return null;
+
+  //今カーソルがある位置
+  const cursorPosition =
+    dictionaryEditor.state.selection.main.head;
+
+  //その位置が何行目かを調べる
+  const cmLine =
+    dictionaryEditor.state.doc.lineAt(cursorPosition);
+
+  //codemirrorは1行目を1と数えるが、配列は0から始まる
+  //そのズレを調整するためcodemirror側の行数-1
+  const lineIndex =
+    cmLine.number - 1;
+
+  ensurePageLineIds(currentDictionaryPage);
+
+  const lineId =
+    currentDictionaryPage.lineIds[lineIndex];
+
+  return {
+    lineIndex,
+    lineId
+  };
+}
+
 
 
 // ==============================
