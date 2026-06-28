@@ -12,12 +12,12 @@
 
 <div class="top-actions">
     <span id="save-status" class="save-status">● 保存済み</span>
-  <button id="layer-toggle-button" class="top-button">原作のみ</button>
+  <button id="layer-toggle-button" class="top-button">設定資料のみ</button>
 
   <div class="dropdown">
     <button id="import-button" class="top-button">読み込み</button>
     <div id="import-menu" class="dropdown-menu hidden">
-      <button id="import-base-button">原作読み込み</button>
+      <button id="import-base-button">設定資料読み込み</button>
       <button id="import-work-button">作品読み込み</button>
     </div>
   </div>
@@ -25,7 +25,7 @@
   <div class="dropdown">
     <button id="export-button" class="top-button">書き出し</button>
     <div id="export-menu" class="dropdown-menu hidden">
-      <button id="export-base-button">原作書き出し</button>
+      <button id="export-base-button">設定資料書き出し</button>
       <button id="export-work-button">作品書き出し</button>
       <button id="export-current-novel-text-button">現在の本文をtxt書き出し</button>
       <button id="export-all-novels-text-button">全本文をまとめてtxt書き出し</button>
@@ -155,5 +155,20 @@
 
   <script type="module" src="/script.js"></script>
   
+  <div id="modal-overlay" class="hidden">
+  <div id="modal-window">
+
+    <h2 id="modal-title"></h2>
+
+    <div id="modal-body"></div>
+
+    <div class="modal-buttons">
+      <button id="modal-cancel">キャンセル</button>
+      <button id="modal-ok">OK</button>
+    </div>
+
+  </div>
+</div>
+
 </body>
 </html>

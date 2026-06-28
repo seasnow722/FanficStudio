@@ -1,26 +1,29 @@
-# Changelog
+# CHANGELOG
+
+## v0.5.2 予定
+
+* Undo / Redoボタン修正
+* 「原作」表記を「設定資料」へ変更
+* 設定資料の読み込み・書き出し時に注意ポップアップを追加
 
 ## v0.5.1
 
-- GitHub Pages対応
-- 配布改善
+* GitHub Pages対応
+* URLからFanfic Studioを起動できるようにした
+* README / docs整理
 
 ## v0.5.0
 
-- 本文CodeMirror
-- 辞書CodeMirror
-- 原作出典
-- 作品注釈
-- レイヤー
-- Wikiリンク
-
-## v0.4.0
-
-- 辞書をCodeMirrorへ移行
-- 行単位Decoration対応
-- 原作出典追加
-- 作品注釈追加
-- prompt廃止
-- 行アクションWidget追加
-- Backspace不具合修正
-- 行メニュー追加
+* 小説本文をCodeMirror化
+* 辞書本文をCodeMirror化
+* 辞書本文のlineId管理を導入
+* 原作出典の追加・編集・削除を実装
+* 作品注釈の追加・編集・削除を実装
+* 作品注釈をDecorationで行間表示
+* レイヤー切替を実装
+* Wikiリンクを実装
+* 保存状態表示を実装
+* 小説本文の文字数カウントを実装
+* JSON読み込み・書き出しを実装
+* 小説本文txt書き出しを実装
+* 左右ペイン開閉・リサイズを実装

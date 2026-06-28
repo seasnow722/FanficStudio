@@ -16,8 +16,8 @@
 
 // codemirrorのEditorViewを持ってくる
 import { EditorView } from "codemirror";
-import { undo, redo } from "@codemirror/commands";
-import {  Decoration,  WidgetType } from "@codemirror/view";
+import { undo, redo, history, historyKeymap } from "@codemirror/commands";
+import { Decoration, WidgetType, keymap } from "@codemirror/view";
 
 // 小説本文用CodeMirror本体を入れる箱を先に作る
 let novelEditor = null;
@@ -51,9 +51,9 @@ const defaultData = {
 辞書本文では [[ルーク]] のように書くと、別の辞書ページへ移動できます。
 
 辞書本文の各行の下にある「＋」から、
-原作出典や作品注釈を追加できます。
+設定資料出典や作品注釈を追加できます。
 
-上部の「原作のみ / 原作＋作品注釈」ボタンで、
+上部の「設定資料のみ / 設定資料＋作品注釈」ボタンで、
 作品注釈の表示・非表示を切り替えられます。`,
       sources: [],
       lineIds: [
@@ -87,7 +87,7 @@ const defaultData = {
           id: "source-magic-1",
           lineIndex: 0,
           lineId: "line-magic-1",
-          source: "サンプル原作：第1章"
+          source: "サンプル設定資料：第1章"
         }
       ],
       lineIds: [
@@ -114,7 +114,7 @@ const defaultData = {
           id: "source-luke-1",
           lineIndex: 0,
           lineId: "line-luke-1",
-          source: "サンプル原作：キャラクター紹介"
+          source: "サンプル設定資料：キャラクター紹介"
         }
       ],
       lineIds: [
@@ -183,7 +183,7 @@ const defaultData = {
           pageId: "magic",
           lineIndex: 2,
           lineId: "line-magic-3",
-          body: "原作では苦手意識程度だが、この作品ではトラウマ寄りに変更予定。"
+          body: "設定資料では苦手意識程度だが、この作品ではトラウマ寄りに変更予定。"
         }
       ]
     }
@@ -212,7 +212,7 @@ let currentPageId = null;
 let currentNovelId = null;
 
 // 現在扱う辞書ページ一覧。
-// 今は原作辞書 basePages をそのまま使っている。
+// 今は設定資料辞書 basePages をそのまま使っている。
 let pages = basePages;
 // 現在の作品に属する小説本文一覧。
 // currentWorkId が決まったあとで getCurrentWork().novels を入れる。
@@ -227,8 +227,8 @@ if (currentWorkId) {
 let currentMainTab = "novel";
 
 // 辞書ページの表示モード
-// "base" = 原作のみ
-// "overlay" = 原作 + 現在の作品注釈
+// "base" = 設定資料のみ
+// "overlay" = 設定資料 + 現在の作品注釈
 let dictionaryLayerMode = "base";
 
 //ページの幅
@@ -328,6 +328,13 @@ const exportCurrentNovelTextButton =
 const exportAllNovelsTextButton =
   document.getElementById("export-all-novels-text-button");
 
+//modal（ポップアップ）系
+const modalOverlay = document.getElementById("modal-overlay");
+const modalTitle = document.getElementById("modal-title");
+const modalBody = document.getElementById("modal-body");
+const modalOk = document.getElementById("modal-ok");
+const modalCancel = document.getElementById("modal-cancel");
+
 
 // ==============================
 // 4. 汎用関数
@@ -383,7 +390,7 @@ function loadData() {
       page.order = 999;
     }
 
-    // 原作本文の各行に付ける出典を保存する配列
+    // 設定資料本文の各行に付ける出典を保存する配列
     // lineIndex = 本文の何行目か
     // source = 出典名（ゲーム3章、アニメ5話など）
     if (!page.sources) {
@@ -731,12 +738,12 @@ function showSourceForm(page, lineInfo) {
 
   formArea.innerHTML = `
     <div class="inline-form-box">
-      <label>原作出典</label>
+      <label>設定資料出典</label>
 
       <textarea
         id="inline-source-body"
         class="inline-form-textarea"
-        placeholder="この行の原作出典を入力"
+        placeholder="この行の設定資料出典を入力"
       ></textarea>
 
       <div class="inline-form-actions">
@@ -813,7 +820,7 @@ function showLineActionMenu(page, lineInfo) {
         </button>
 
         <button id="choose-source-button" class="side-button">
-          原作出典
+          設定資料出典
         </button>
 
         <button id="cancel-inline-form-button" class="side-button">
@@ -914,7 +921,7 @@ function showEditSourceForm(page, sourceItem) {
 
   formArea.innerHTML = `
     <div class="inline-form-box">
-      <label>原作出典を編集</label>
+      <label>設定資料出典を編集</label>
 
       <textarea
         id="inline-edit-source-body"
@@ -1472,6 +1479,31 @@ function updateNovelCharCount() {
   novelCharCount.textContent = `${novel.body.length}文字`;
 }
 
+function showModal(title, html, onOk) {
+
+  modalTitle.innerHTML = title;
+  modalBody.innerHTML = html;
+
+  modalOverlay.classList.remove("hidden");
+
+  modalOk.onclick = () => {
+
+    modalOverlay.classList.add("hidden");
+
+    if(onOk){
+      onOk();
+    }
+
+  };
+
+  modalCancel.onclick = () => {
+
+    modalOverlay.classList.add("hidden");
+
+  };
+
+}
+
 
 // ==============================
 // 6. 移動系関数
@@ -1810,10 +1842,10 @@ newFlagButton.addEventListener("click", () => {
 layerToggleButton.addEventListener("click", () => {
   if (dictionaryLayerMode === "base") {
     dictionaryLayerMode = "overlay";
-    layerToggleButton.textContent = "原作＋作品注釈";
+    layerToggleButton.textContent = "設定資料＋作品注釈";
   } else {
     dictionaryLayerMode = "base";
-    layerToggleButton.textContent = "原作のみ";
+    layerToggleButton.textContent = "設定資料のみ";
   }
 
   const page = getCurrentPage();
@@ -1822,7 +1854,7 @@ layerToggleButton.addEventListener("click", () => {
   }
 });
 
-// 原作データのJSONファイルを読み込む
+// 設定資料データのJSONファイルを読み込む
 importBaseFile.addEventListener("change", () => {
   const file = importBaseFile.files[0];
   if (!file) return;
@@ -1833,7 +1865,7 @@ importBaseFile.addEventListener("change", () => {
     const importedData = JSON.parse(reader.result);
 
     if (importedData.type !== "base") {
-      alert("原作データではありません。");
+      alert("設定資料データではありません。");
       return;
     }
 
@@ -1847,7 +1879,7 @@ importBaseFile.addEventListener("change", () => {
 
     sideInfo.innerHTML = "辞書ページを選択してください。";
 
-    alert("原作データを読み込みました。");
+    alert("設定資料データを読み込みました。");
   });
 
   reader.readAsText(file);
@@ -1917,10 +1949,30 @@ exportButton.addEventListener("click", () => {
   importMenu.classList.add("hidden");
 });
 
-// 原作読み込み
+// 設定資料読み込み
 importBaseButton.addEventListener("click", () => {
   importMenu.classList.add("hidden");
-  importBaseFile.click();
+
+  showModal(
+    "設定資料を読み込みます",
+    `
+    <p>
+      Fanfic Studioは個人用設定資料を保存・復元するためのツールです。
+    </p>
+
+    <p>
+      他の人が作成した設定資料には、
+      権利者の許可なく公開・共有されたデータが含まれている可能性があります。
+    </p>
+
+    <p>
+      信頼できるデータのみ読み込んでください。
+    </p>
+    `,
+    () => {
+      importBaseFile.click();
+    }
+  );
 });
 
 // 作品読み込み
@@ -1929,15 +1981,35 @@ importWorkButton.addEventListener("click", () => {
   importWorkFile.click();
 });
 
-// 原作書き出し
+// 設定資料書き出し
+// 設定資料書き出し
 exportBaseButton.addEventListener("click", () => {
   exportMenu.classList.add("hidden");
 
-  downloadJson("base-data.json", {
-    type: "base",
-    folders,
-    basePages
-  });
+  showModal(
+    "設定資料を書き出します",
+    `
+    <p>
+      Fanfic Studioは個人用設定資料を保存・復元するためのツールです。
+    </p>
+
+    <p>
+      公式作品本文や有料コンテンツ等を含むデータを、
+      権利者の許可なく共有・公開することは推奨していません。
+    </p>
+
+    <p>
+      個人利用の範囲や権利者の利用条件を確認した上で書き出してください。
+    </p>
+    `,
+    () => {
+      downloadJson("reference-data.json", {
+        type: "base",
+        folders,
+        basePages
+      });
+    }
+  );
 });
 
 // 作品書き出し
@@ -1991,13 +2063,25 @@ exportAllNovelsTextButton.addEventListener("click", () => {
 // アンドゥボタン
 undoButton.addEventListener("click", () => {
   if (!novelEditor) return;
-  undo(novelEditor);
+
+  undo({
+    state: novelEditor.state,
+    dispatch: novelEditor.dispatch
+  });
+
+  novelEditor.focus();
 });
 
 //リドゥボタン
 redoButton.addEventListener("click", () => {
   if (!novelEditor) return;
-  redo(novelEditor);
+
+  redo({
+    state: novelEditor.state,
+    dispatch: novelEditor.dispatch
+  });
+
+  novelEditor.focus();
 });
 
 //左パネル閉じ開きボタン
@@ -2069,8 +2153,22 @@ function initNovelEditor() {
     doc: "",
     parent: editorElement,
     extensions: [
-      EditorView.lineWrapping
-    ],
+      history(),
+
+      keymap.of([
+      ...historyKeymap,
+    {
+      key: "Ctrl-Shift-z",
+      run: redo
+    },
+    {
+      key: "Mod-Shift-z",
+      run: redo
+    }
+  ]),
+
+    EditorView.lineWrapping
+  ],
 
     dispatch: (transaction) => {
       novelEditor.update([transaction]);
@@ -2107,7 +2205,22 @@ function initDictionaryEditor(page) {
   doc: page.body,
   parent: dictionaryEditorElement,
   extensions: [
-  EditorView.lineWrapping,
+  history(),
+
+  keymap.of([
+    ...historyKeymap,
+    {
+      key: "Ctrl-Shift-z",
+      run: redo
+    },
+    {
+      key: "Mod-Shift-z",
+      run: redo
+    }
+  ]),
+
+    EditorView.lineWrapping
+  ,
 
   EditorView.decorations.compute(
     ["doc"],
@@ -2320,7 +2433,7 @@ class LineActionMenuWidget extends WidgetType {
 
     const sourceButton = document.createElement("button");
     sourceButton.className = "cm-line-menu-button";
-    sourceButton.textContent = "原作出典";
+    sourceButton.textContent = "設定資料出典";
 
     sourceButton.addEventListener("click", () => {
       showSourceForm(this.page, {
