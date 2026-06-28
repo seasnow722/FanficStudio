@@ -28,19 +28,73 @@ let novelEditor = null;
 // ==============================
 const defaultData = {
   folders: [
-    { id: "world", title: "世界観", order: 1 },
-    { id: "characters", title: "キャラクター", order: 2 },
-    { id: "other", title: "その他", order: 99 }
+    { id: "guide", title: "はじめに", order: 1, collapsed: false },
+    { id: "world", title: "世界観", order: 2, collapsed: false },
+    { id: "characters", title: "キャラクター", order: 3, collapsed: false }
   ],
 
   basePages: [
+    {
+      id: "guide-start",
+      title: "Fanfic Studioの使い方",
+      folderId: "guide",
+      order: 1,
+      tags: ["ガイド"],
+      body:
+`Fanfic Studioへようこそ。
+
+これは二次創作小説を書くための創作支援ツールです。
+
+左側の一覧から辞書ページや小説本文を開けます。
+中央で小説本文を書き、右側で辞書ページを編集できます。
+
+辞書本文では [[ルーク]] のように書くと、別の辞書ページへ移動できます。
+
+辞書本文の各行の下にある「＋」から、
+原作出典や作品注釈を追加できます。
+
+上部の「原作のみ / 原作＋作品注釈」ボタンで、
+作品注釈の表示・非表示を切り替えられます。`,
+      sources: [],
+      lineIds: [
+        "line-guide-1",
+        "line-guide-2",
+        "line-guide-3",
+        "line-guide-4",
+        "line-guide-5",
+        "line-guide-6",
+        "line-guide-7",
+        "line-guide-8",
+        "line-guide-9",
+        "line-guide-10",
+        "line-guide-11",
+        "line-guide-12",
+        "line-guide-13"
+      ]
+    },
     {
       id: "magic",
       title: "魔法",
       folderId: "world",
       order: 1,
       tags: ["世界観", "魔法"],
-      body: "この世界に存在する力。\n\n[[飛行]]と関係がある。"
+      body:
+`この世界に存在する力。
+訓練を受けた者だけが安定して扱える。
+[[ルーク]]は魔法を少し苦手としている。`,
+      sources: [
+        {
+          id: "source-magic-1",
+          lineIndex: 0,
+          lineId: "line-magic-1",
+          source: "サンプル原作：第1章"
+        }
+      ],
+      lineIds: [
+        "line-magic-1",
+        "line-magic-2",
+        "line-magic-3"
+      ]
     },
     {
       id: "luke",
@@ -48,7 +102,29 @@ const defaultData = {
       folderId: "characters",
       order: 1,
       tags: ["キャラクター", "剣士"],
-      body: "一人称：俺\n二人称：君\n身長：178cm\n\n剣士。[[魔法]]に少し苦手意識がある。"
+      body:
+`一人称：俺
+二人称：君
+身長：178cm
+
+剣士。
+[[魔法]]に少し苦手意識がある。`,
+      sources: [
+        {
+          id: "source-luke-1",
+          lineIndex: 0,
+          lineId: "line-luke-1",
+          source: "サンプル原作：キャラクター紹介"
+        }
+      ],
+      lineIds: [
+        "line-luke-1",
+        "line-luke-2",
+        "line-luke-3",
+        "line-luke-4",
+        "line-luke-5",
+        "line-luke-6"
+      ]
     },
     {
       id: "catherine",
@@ -56,28 +132,66 @@ const defaultData = {
       folderId: "characters",
       order: 2,
       tags: ["キャラクター", "研究者"],
-      body: "一人称：私\n二人称：あなた\n身長：165cm\n\n魔法研究者。"
+      body:
+`一人称：私
+二人称：あなた
+身長：165cm
+
+魔法研究者。
+[[ルーク]]に魔法の基礎を教えたことがある。`,
+      sources: [],
+      lineIds: [
+        "line-catherine-1",
+        "line-catherine-2",
+        "line-catherine-3",
+        "line-catherine-4",
+        "line-catherine-5",
+        "line-catherine-6"
+      ]
     }
   ],
 
-works: [
-  {
-    id: "work1",
-    title: "二次創作作品A",
-    novels: [
-      {
-        id: "chapter1",
-        title: "第一話",
-        body: `[[ルーク]]は[[魔法]]によって飛行能力を得た。
-そのため幼い頃の高所恐怖症を克服している。`
-      }
-    ],
-    events: [],
-    flags:[],
-    pages: []
-  }
-]};
+  works: [
+    {
+      id: "work1",
+      title: "サンプル作品",
+      novels: [
+        {
+          id: "chapter1",
+          title: "第一話：サンプル本文",
+          body:
+`[[ルーク]]は森の入口で足を止めた。
 
+「本当にここで[[魔法]]の訓練をするのか？」
+
+遠くで、[[キャサリン]]が小さく笑った。`
+        }
+      ],
+      events: [],
+      flags: [],
+      pages: [],
+      annotations: [
+        {
+          id: "annotation-luke-1",
+          pageId: "luke",
+          lineIndex: 5,
+          lineId: "line-luke-6",
+          body: "この作品では、ルークは魔法への苦手意識を少し強めに扱う。"
+        },
+        {
+          id: "annotation-magic-1",
+          pageId: "magic",
+          lineIndex: 2,
+          lineId: "line-magic-3",
+          body: "原作では苦手意識程度だが、この作品ではトラウマ寄りに変更予定。"
+        }
+      ]
+    }
+  ],
+
+  leftPaneWidth: 240,
+  rightPaneWidth: 320
+};
 
 
 // ==============================
@@ -1412,20 +1526,49 @@ let isDraggingLeft = false;
 let isDraggingRight = false;
 
 //gridを更新する関数
-//今覚えている左右幅を前提に画面の幅を作る
+//左ペイン・中央本文・右ペインは、常にこの5列で考える。
+//ペインを閉じている時も列の数は変えず、閉じた側だけ 0px にする。
 function updatePaneGrid() {
+  document.documentElement.style.setProperty(
+    "--left-pane-width",
+    `${leftPaneWidth}px`
+  );
+
+  document.documentElement.style.setProperty(
+    "--right-pane-width",
+    `${rightPaneWidth}px`
+  );
+
+  const isLeftCollapsed =
+    appLayout.classList.contains("left-collapsed");
+
+  const isRightCollapsed =
+    appLayout.classList.contains("right-collapsed");
+
+  const leftColumns = isLeftCollapsed
+    ? "0px 0px"
+    : `${leftPaneWidth}px 6px`;
+
+  const rightColumns = isRightCollapsed
+    ? "0px 0px"
+    : `6px ${rightPaneWidth}px`;
+
   appLayout.style.gridTemplateColumns =
-    `${leftPaneWidth}px 6px 1fr 6px ${rightPaneWidth}px`;
+    `${leftColumns} 1fr ${rightColumns}`;
 }
 
 //左サイドバーのサイズ変更箇所のドラッグを検知する
 leftResizer.addEventListener("mousedown", () => {
+  if (appLayout.classList.contains("left-collapsed")) return;
+
   isDraggingLeft = true;
   console.log("左ドラッグ開始！");
 });
 
 //右サイドバーのサイズ変更箇所のドラッグを検知する
 rightResizer.addEventListener("mousedown", () => {
+  if (appLayout.classList.contains("right-collapsed")) return;
+
   isDraggingRight = true;
   console.log("右ドラッグ開始！");
 });
@@ -1861,6 +2004,7 @@ redoButton.addEventListener("click", () => {
 toggleLeftPaneButton.addEventListener("click", () => {
   appLayout.classList.toggle("left-collapsed");
   document.body.classList.toggle("left-collapsed");
+  updatePaneGrid();
 
   if (appLayout.classList.contains("left-collapsed")) {
     toggleLeftPaneButton.textContent = "▶";
@@ -1873,6 +2017,7 @@ toggleLeftPaneButton.addEventListener("click", () => {
 toggleRightPaneButton.addEventListener("click", () => {
   appLayout.classList.toggle("right-collapsed");
   document.body.classList.toggle("right-collapsed");
+  updatePaneGrid();
 
   if (appLayout.classList.contains("right-collapsed")) {
     toggleRightPaneButton.textContent = "◀";
@@ -1962,17 +2107,53 @@ function initDictionaryEditor(page) {
   doc: page.body,
   parent: dictionaryEditorElement,
   extensions: [
-    EditorView.lineWrapping,
+  EditorView.lineWrapping,
 
-    EditorView.decorations.compute(
-      ["doc"],
-      (state) => {
-        return buildDictionaryDecorations({
-          state
-        });
-      }
-    )
-  ],
+  EditorView.decorations.compute(
+    ["doc"],
+    (state) => {
+      return buildWikiLinkDecorations(state);
+    }
+  ),
+
+  EditorView.decorations.compute(
+    ["doc"],
+    (state) => {
+      return buildDictionaryDecorations({
+        state
+      });
+    }
+  ),
+  EditorView.domEventHandlers({
+  click: (event, view) => {
+    const target = event.target;
+
+    if (!(target instanceof HTMLElement)) {
+      return false;
+    }
+
+    const link = target.closest(".cm-wiki-link");
+
+    if (!link) {
+      return false;
+    }
+
+    const pageTitle = link.dataset.title;
+    if (!pageTitle) return false;
+
+    const targetPage =
+      pages.find((page) => page.title === pageTitle);
+
+    if (!targetPage) {
+      alert(`「${pageTitle}」のページはまだありません`);
+      return true;
+    }
+
+    showPage(targetPage.id);
+    return true;
+  }
+})
+],
 
   dispatch: (transaction) => {
     dictionaryEditor.update([transaction]);
@@ -2233,6 +2414,34 @@ function deleteSource(sourceId) {
   updateSideInfo(page);
 }
 
+//wikiリンクに.cm-wiiki-linkを作る
+function buildWikiLinkDecorations(state) {
+  const widgets = [];
+  const text = state.doc.toString();
+
+  const wikiPattern = /\[\[([^\]]+)\]\]/g;
+  let match;
+
+  while ((match = wikiPattern.exec(text)) !== null) {
+    const fullText = match[0];
+    const pageTitle = match[1];
+
+    const from = match.index;
+    const to = match.index + fullText.length;
+
+    widgets.push(
+      Decoration.mark({
+        class: "cm-wiki-link",
+        attributes: {
+          "data-title": pageTitle
+        }
+      }).range(from, to)
+    );
+  }
+
+  return Decoration.set(widgets);
+}
+
 // 辞書CodeMirrorに表示するDecorationを作る
 function buildDictionaryDecorations(view) {
   const widgets = [];
@@ -2291,15 +2500,18 @@ if (
     );
   });
 
-  const annotations = work.annotations.filter((annotation) => {
-    return (
-      annotation.pageId === page.id &&
-      (
-        annotation.lineId === lineId ||
-        annotation.lineIndex === index
-      )
-    );
-  });
+  const annotations =
+  dictionaryLayerMode === "overlay"
+    ? work.annotations.filter((annotation) => {
+        return (
+          annotation.pageId === page.id &&
+          (
+            annotation.lineId === lineId ||
+            annotation.lineIndex === index
+          )
+        );
+      })
+    : [];
 
 lineSources.forEach((sourceItem) => {
   widgets.push(
@@ -2359,6 +2571,8 @@ function getCurrentDictionaryLineInfo() {
 // ==============================
 // 99. 初期表示
 // ==============================
+// localStorage.removeItem("fanficStudioData");
+
 initNovelEditor();
 updatePaneGrid();
 

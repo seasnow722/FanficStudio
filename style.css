@@ -21,6 +21,26 @@ h1 {
   height: calc(100vh - 60px);
 }
 
+.sidebar {
+  grid-column: 1;
+}
+
+#left-resizer {
+  grid-column: 2;
+}
+
+.main-page {
+  grid-column: 3;
+}
+
+#right-resizer {
+  grid-column: 4;
+}
+
+.detail {
+  grid-column: 5;
+}
+
 .sidebar,
 .detail {
   padding: 16px;
@@ -707,24 +727,14 @@ textarea {
   color:#2c9d3d;
 }
 
-.app-layout.left-collapsed .sidebar {
+.app-layout.left-collapsed .sidebar,
+.app-layout.left-collapsed #left-resizer {
   display: none;
 }
 
-.app-layout.right-collapsed .detail {
+.app-layout.right-collapsed .detail,
+.app-layout.right-collapsed #right-resizer {
   display: none;
-}
-
-.app-layout.left-collapsed {
-  grid-template-columns: 1fr 320px;
-}
-
-.app-layout.right-collapsed {
-  grid-template-columns: 240px 1fr;
-}
-
-.app-layout.left-collapsed.right-collapsed {
-  grid-template-columns: 1fr;
 }
 
 .sidebar,
@@ -734,7 +744,7 @@ textarea {
 
 #toggle-left-pane-button {
   position: fixed;
-  left: 238px;
+  left: calc(var(--left-pane-width, 240px) - 2px);
   bottom: 20px;
   z-index: 1000;
 }
@@ -745,7 +755,7 @@ body.left-collapsed #toggle-left-pane-button {
 
 #toggle-right-pane-button {
   position: fixed;
-  right: 318px;
+  right: calc(var(--right-pane-width, 320px) - 2px);
   bottom: 20px;
   z-index: 1000;
 }
@@ -1072,4 +1082,17 @@ body {
   justify-content: flex-end;
   margin: 2px 0 4px;
   user-select: none;
+}
+
+.cm-wiki-link {
+  color: #7b4f24;
+  background: #ead7b7;
+  border-radius: 4px;
+  padding: 0 3px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.cm-wiki-link:hover {
+  background: #d8c3a5;
 }
