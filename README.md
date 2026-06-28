@@ -14,6 +14,19 @@ VSCodeやObsidianのように、執筆・資料管理・設定管理を一つの
 
 ---
 
+## 起動方法
+
+### Windows 1
+
+
+### Windows 2
+1. Node.jsをインストールする
+2. このリポジトリをZIPでダウンロードして解凍する
+3. `start-fanfic-studio.bat` をダブルクリックする
+4. 表示された `http://localhost:5173` をブラウザで開く
+
+---
+
 ## 主な機能
 
 * 小説本文の執筆（CodeMirrorエディタ）
@@ -57,11 +70,6 @@ VSCodeやObsidianのように、執筆・資料管理・設定管理を一つの
 
 ---
 
-## 開発メモ
+## 開発資料
 
-開発状況や設計思想については
-
-* `PROJECT_CONTEXT.md`
-* `TODO.md`
-
-を参照してください。
+開発中の設計・TODOなどは `docs/` フォルダにまとめています。

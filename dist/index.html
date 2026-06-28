@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Fanfic Studio</title>
+  <script type="module" crossorigin src="/FanficStudio/assets/index-B-qmWgfK.js"></script>
+  <link rel="stylesheet" crossorigin href="/FanficStudio/assets/index-Ce5XXONK.css">
+</head>
+<body>
+  
+<header class="top-bar">
+  <h1>Fanfic Studio</h1>
+
+<div class="top-actions">
+    <span id="save-status" class="save-status">● 保存済み</span>
+  <button id="layer-toggle-button" class="top-button">原作のみ</button>
+
+  <div class="dropdown">
+    <button id="import-button" class="top-button">読み込み</button>
+    <div id="import-menu" class="dropdown-menu hidden">
+      <button id="import-base-button">原作読み込み</button>
+      <button id="import-work-button">作品読み込み</button>
+    </div>
+  </div>
+
+  <div class="dropdown">
+    <button id="export-button" class="top-button">書き出し</button>
+    <div id="export-menu" class="dropdown-menu hidden">
+      <button id="export-base-button">原作書き出し</button>
+      <button id="export-work-button">作品書き出し</button>
+      <button id="export-current-novel-text-button">現在の本文をtxt書き出し</button>
+      <button id="export-all-novels-text-button">全本文をまとめてtxt書き出し</button>
+    </div>
+  </div>
+
+</div>
+ </header>
+
+<div class="left-toggle-container">
+  <button id="toggle-left-pane-button">◀</button>
+</div>
+
+<div class="right-toggle-container">
+  <button id="toggle-right-pane-button">▶</button>
+</div>
+ 
+
+
+  <main class="app-layout">
+    <aside class="sidebar">
+<input id="search-input" class="search-input" placeholder="辞書を検索">
+
+<div class="sidebar-actions">
+
+  <button
+    id="new-folder-button"
+    class="new-page-button"
+    title="新規フォルダ"
+  >
+    📁
+  </button>
+
+  <button
+    id="new-page-button"
+    class="new-page-button"
+    title="新規辞書ページ"
+  >
+    📖
+  </button>
+
+  <button
+    id="new-novel-button"
+    class="new-page-button"
+    title="新規小説本文"
+  >
+    📝
+  </button>
+</div>
+<div id="page-list"></div>
+
+<hr>
+
+<input id="import-base-file" type="file" accept=".json" hidden>
+<input id="import-work-file" type="file" accept=".json" hidden>
+
+</aside>
+
+<div id="left-resizer"></div>
+
+<section class="main-page">
+  <div class="pane-menu">
+  <button
+    id="delete-novel-button"
+    class="icon-delete-button"
+    title="この本文を削除"
+>
+    🗑
+  </button>
+  </div>
+
+  <div class="main-tabs">
+    <button class="main-tab active" data-tab="novel">本文</button>
+    <button class="main-tab" data-tab="timeline">時系列</button>
+    <button class="main-tab" data-tab="relation">相関図</button>
+    <button class="main-tab" data-tab="flags">フラグ</button>
+  </div>
+
+  <div id="novel-panel" class="tab-panel">
+    <input id="page-title" class="page-title-input" value="">
+    <div id="page-type" class="page-type"></div>
+
+    <div class="novel-toolbar">
+      <button id="undo-button">↶</button>
+      <button id="redo-button">↷</button>
+      <span id="novel-char-count">0文字</span>
+    </div>
+
+    <textarea id="page-body"></textarea>
+    <div id="editor"></div>
+  </div>
+
+  <div id="timeline-panel" class="tab-panel hidden">
+  <h2>時系列</h2>
+  <button id="new-event-button" class="new-page-button">＋ イベント追加</button>
+  <div id="timeline-list"></div>
+  </div>
+
+  <div id="relation-panel" class="tab-panel hidden">
+    <h2>相関図</h2>
+    <p>ここに相関図機能を作ります。</p>
+  </div>
+
+  <div id="flags-panel" class="tab-panel hidden">
+    <h2>フラグ管理</h2>
+
+    <button id="new-flag-button" class="new-page-button">＋ フラグ追加</button>
+    <div id="flag-list"></div>
+</div></section>
+
+<div id="right-resizer"></div>
+
+<aside class="detail">
+  <div class="pane-menu">
+  <button
+    id="delete-page-button"
+    class="icon-delete-button"
+    title="この辞書ページを削除"
+>
+    🗑
+  </button>
+  </div>
+
+  <div id="side-info">左の項目をクリックしてください。</div>
+</aside>
+  </main>
+
+  
+</body>
+</html>

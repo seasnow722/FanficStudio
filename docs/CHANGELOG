@@ -1,0 +1,26 @@
+# Changelog
+
+## v0.5.1
+
+- GitHub Pages対応
+- 配布改善
+
+## v0.5.0
+
+- 本文CodeMirror
+- 辞書CodeMirror
+- 原作出典
+- 作品注釈
+- レイヤー
+- Wikiリンク
+
+## v0.4.0
+
+- 辞書をCodeMirrorへ移行
+- 行単位Decoration対応
+- 原作出典追加
+- 作品注釈追加
+- prompt廃止
+- 行アクションWidget追加
+- Backspace不具合修正
+- 行メニュー追加
