@@ -102,21 +102,31 @@
     <button class="main-tab" data-tab="timeline">時系列</button>
     <button class="main-tab" data-tab="relation">相関図</button>
     <button class="main-tab" data-tab="flags">フラグ</button>
+    <button class="main-tab" data-tab="progress">進捗</button>
   </div>
 
   <div id="novel-panel" class="tab-panel">
-    <input id="page-title" class="page-title-input" value="">
-    <div id="page-type" class="page-type"></div>
+  <input id="page-title" class="page-title-input" value="">
+  <div id="page-type" class="page-type"></div>
 
-    <div class="novel-toolbar">
-      <button id="undo-button">↶</button>
-      <button id="redo-button">↷</button>
-      <span id="novel-char-count">0文字</span>
-    </div>
-
-    <textarea id="page-body"></textarea>
-    <div id="editor"></div>
+  <div class="novel-toolbar">
+    <button id="undo-button">↶</button>
+    <button id="redo-button">↷</button>
+    <span id="novel-char-count">0文字</span>
   </div>
+
+  <textarea id="page-body"></textarea>
+  <div id="editor"></div>
+  </div>
+
+  <div id="progress-panel" class="tab-panel hidden">
+  <h2>進捗</h2>
+
+  <div class="writing-stats-panel">
+    <div>現在の本文：<span id="current-novel-char-count">0</span>文字</div>
+    <div>作品全体：<span id="total-work-char-count">0</span>文字</div>
+  </div>
+</div>
 
   <div id="timeline-panel" class="tab-panel hidden">
   <h2>時系列</h2>

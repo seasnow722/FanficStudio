@@ -674,12 +674,6 @@ textarea {
   flex-direction: column;
 }
 
-#editor {
-  flex: 1;
-  min-height: 500px;
-  overflow: hidden;
-}
-
 #editor .cm-editor {
   height: 100%;
 }
@@ -1142,4 +1136,78 @@ body {
 
   display:none!important;
 
+}
+
+.writing-stats-panel {
+  display: flex;
+  gap: 16px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background: #fffaf3;
+  border: 1px solid #ddd0bd;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #5a4635;
+}
+
+#editor {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#timeline-panel,
+#flags-panel,
+#relation-panel,
+#progress-panel {
+  overflow-y: auto;
+}
+
+#page-body {
+  display: none !important;
+}
+
+#novel-panel {
+  overflow: hidden;
+}
+
+#editor {
+  flex: 1;
+  min-height: 0;
+}
+
+#editor .cm-editor {
+  height: 100%;
+}
+
+#novel-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#editor {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  overflow: hidden;
+  background: #fffaf3;
+  border: 1px solid #ddd0bd;
+  border-radius: 8px;
+}
+
+#editor .cm-editor {
+  height: 100%;
+  min-height: 0;
+}
+
+#editor .cm-scroller {
+  height: 100%;
+  overflow: auto;
+}
+
+#progress-panel.hidden {
+  display: none !important;
 }

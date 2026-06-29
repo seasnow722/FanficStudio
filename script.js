@@ -296,6 +296,10 @@ const editorElement = document.getElementById("editor");
 
 //文字数カウント
 const novelCharCount = document.getElementById("novel-char-count");
+const currentNovelCharCount =
+  document.getElementById("current-novel-char-count");
+const totalWorkCharCount =
+  document.getElementById("total-work-char-count");
 
 // アンドゥリドゥボタンの要素
 const undoButton = document.getElementById("undo-button");
@@ -334,6 +338,8 @@ const modalTitle = document.getElementById("modal-title");
 const modalBody = document.getElementById("modal-body");
 const modalOk = document.getElementById("modal-ok");
 const modalCancel = document.getElementById("modal-cancel");
+
+
 
 
 // ==============================
@@ -1455,6 +1461,10 @@ function switchMainTab(tabName) {
   if (tabName === "flags") {
     renderFlags();
   }
+
+  if (tabName === "progress") {
+  updateWritingStats();
+  }
 }
 
 
@@ -1473,11 +1483,40 @@ function updateNovelCharCount() {
 
   if (!novel) {
     novelCharCount.textContent = "0文字";
+    updateWritingStats();
     return;
   }
 
   novelCharCount.textContent = `${novel.body.length}文字`;
+
+  updateWritingStats();
 }
+
+//文字数カウント関数
+function updateWritingStats() {
+  const currentNovelCharCount =
+    document.getElementById("current-novel-char-count");
+
+  const totalWorkCharCount =
+    document.getElementById("total-work-char-count");
+
+  if (!currentNovelCharCount || !totalWorkCharCount) return;
+
+  const novel = getCurrentNovel();
+  const work = getCurrentWork();
+
+  const currentCount = novel ? novel.body.length : 0;
+
+  const totalCount = work
+    ? work.novels.reduce((sum, novel) => {
+        return sum + novel.body.length;
+      }, 0)
+    : 0;
+
+  currentNovelCharCount.textContent = currentCount.toLocaleString();
+  totalWorkCharCount.textContent = totalCount.toLocaleString();
+}
+
 
 function showModal(title, html, onOk) {
 
