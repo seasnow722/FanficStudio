@@ -362,7 +362,8 @@ const modalBody = document.getElementById("modal-body");
 const modalOk = document.getElementById("modal-ok");
 const modalCancel = document.getElementById("modal-cancel");
 
-
+const novelCharList =
+  document.getElementById("novel-char-list");
 
 
 // ==============================
@@ -482,6 +483,13 @@ function getCurrentWork() {
   // 作品ごとの行単位注釈がなければ作る
   if (!work.annotations) {
   work.annotations = [];
+  }
+
+  if (!work.progress) {
+  work.progress = {
+    useGoal: false,
+    goalChars: 0
+  };
   }
 
   return work;
@@ -1581,6 +1589,105 @@ function updateWritingStats() {
 
   currentNovelCharCount.textContent = currentCount.toLocaleString();
   totalWorkCharCount.textContent = totalCount.toLocaleString();
+
+  renderNovelCharList();
+  updateGoalProgress();
+}
+
+function updateGoalProgress() {
+  const work = getCurrentWork();
+  if (!work) return;
+
+  if (!work.progress) {
+    work.progress = {
+      useGoal: false,
+      goalChars: 0
+    };
+  }
+
+  const useGoalCheckbox =
+    document.getElementById("use-goal-checkbox");
+
+  const goalSettings =
+    document.getElementById("goal-settings");
+
+  const goalCharInput =
+    document.getElementById("goal-char-input");
+
+  const goalProgressPercent =
+    document.getElementById("goal-progress-percent");
+
+  const goalBarFill =
+    document.getElementById("goal-bar-fill");
+
+  if (
+    !useGoalCheckbox ||
+    !goalSettings ||
+    !goalCharInput ||
+    !goalProgressPercent ||
+    !goalBarFill
+  ) {
+    return;
+  }
+
+  const totalCount = work.novels.reduce((sum, novel) => {
+    return sum + novel.body.length;
+  }, 0);
+
+  useGoalCheckbox.checked = work.progress.useGoal;
+  goalCharInput.value =
+    work.progress.goalChars > 0 ? work.progress.goalChars : "";
+
+  if (work.progress.useGoal) {
+    goalSettings.classList.remove("hidden");
+  } else {
+    goalSettings.classList.add("hidden");
+  }
+
+  const goal = Number(work.progress.goalChars) || 0;
+
+  const percent =
+    goal > 0
+      ? Math.min(100, Math.floor((totalCount / goal) * 100))
+      : 0;
+
+  goalProgressPercent.textContent = percent.toString();
+  goalBarFill.style.width = `${percent}%`;
+}
+
+
+function renderNovelCharList() {
+  const listElement =
+    document.getElementById("novel-char-list");
+
+  if (!listElement) return;
+
+  const work = getCurrentWork();
+
+  if (!work || !work.novels || work.novels.length === 0) {
+    listElement.innerHTML = "<p>本文がありません。</p>";
+    return;
+  }
+
+  listElement.innerHTML = "";
+
+  work.novels.forEach((novel) => {
+    const row = document.createElement("div");
+    row.className = "novel-char-row";
+
+    const title = document.createElement("span");
+    title.className = "novel-char-title";
+    title.textContent = novel.title;
+
+    const count = document.createElement("span");
+    count.className = "novel-char-count";
+    count.textContent = `${novel.body.length.toLocaleString()}文字`;
+
+    row.appendChild(title);
+    row.appendChild(count);
+
+    listElement.appendChild(row);
+  });
 }
 
 
@@ -2232,6 +2339,49 @@ function ensurePageLineIds(page) {
   }
 }
 
+function setupProgressEvents() {
+  const useGoalCheckbox =
+    document.getElementById("use-goal-checkbox");
+
+  const goalCharInput =
+    document.getElementById("goal-char-input");
+
+  if (!useGoalCheckbox || !goalCharInput) return;
+
+  useGoalCheckbox.addEventListener("change", () => {
+    const work = getCurrentWork();
+    if (!work) return;
+
+    if (!work.progress) {
+      work.progress = {
+        useGoal: false,
+        goalChars: 0
+      };
+    }
+
+    work.progress.useGoal = useGoalCheckbox.checked;
+
+    saveData();
+    updateGoalProgress();
+  });
+
+  goalCharInput.addEventListener("input", () => {
+    const work = getCurrentWork();
+    if (!work) return;
+
+    if (!work.progress) {
+      work.progress = {
+        useGoal: false,
+        goalChars: 0
+      };
+    }
+
+    work.progress.goalChars = Number(goalCharInput.value) || 0;
+
+    saveData();
+    updateGoalProgress();
+  });
+}
 
 
 
@@ -2804,5 +2954,6 @@ updatePaneMenu();
 
 userData.stats.launchCount += 1;
 saveUserData();
+setupProgressEvents();
 
 console.log("Fanfic Studio 起動！");
