@@ -1279,3 +1279,39 @@ body {
   width: 0%;
   background: #c49a6c;
 }
+
+.writing-log-row {
+  display: grid;
+  grid-template-columns: 120px 1fr 1fr 1fr;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px dashed #ddd0bd;
+  font-size: 14px;
+}
+
+.writing-log-row:last-child {
+  border-bottom: none;
+}
+
+.writing-log-date {
+  font-weight: bold;
+  color: #5a4635;
+}
+
+.writing-chart {
+  height: 260px;
+  background: #fffaf3;
+}
+
+.progress-block {
+  margin-bottom: 20px;
+  padding: 12px;
+  background: #f7efe3;
+  border: 1px solid #ddd0bd;
+  border-radius: 10px;
+}
+
+.progress-block > h3 {
+  margin-top: 0;
+  font-size: 18px;
+}

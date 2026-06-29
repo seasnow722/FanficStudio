@@ -18,9 +18,11 @@
 import { EditorView } from "codemirror";
 import { undo, redo, history, historyKeymap } from "@codemirror/commands";
 import { Decoration, WidgetType, keymap } from "@codemirror/view";
+import Chart from "chart.js/auto";
 
 // 小説本文用CodeMirror本体を入れる箱を先に作る
 let novelEditor = null;
+let writingChartInstance = null;
 
 
 // ==============================
@@ -609,6 +611,76 @@ function saveUserData() {
   );
 }
 
+//日付取得
+function getTodayKey() {
+  const now = new Date();
+
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const date = String(now.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${date}`;
+}
+
+//今日のログを取得/作成
+function getTodayWritingLog() {
+  const today = getTodayKey();
+
+  let log = userData.writingLogs.find((log) => {
+    return log.date === today;
+  });
+
+  if (!log) {
+    log = {
+      date: today,
+      addedChars: 0,
+      deletedChars: 0
+    };
+
+    userData.writingLogs.push(log);
+  }
+
+  return log;
+}
+
+//文字数変化を記録する関数
+function recordWritingChange(beforeLength, afterLength) {
+  const diff = afterLength - beforeLength;
+
+  if (diff === 0) return;
+
+  const log = getTodayWritingLog();
+
+  if (diff > 0) {
+    log.addedChars += diff;
+  } else {
+    log.deletedChars += Math.abs(diff);
+  }
+
+  saveUserData();
+}
+
+//過去7日間の日付を作る関数
+function getDateKeyFromDate(dateObject) {
+  const year = dateObject.getFullYear();
+  const month = String(dateObject.getMonth() + 1).padStart(2, "0");
+  const date = String(dateObject.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${date}`;
+}
+
+function getRecentDateKeys(days) {
+  const dateKeys = [];
+
+  for (let i = days - 1; i >= 0; i--) {
+    const dateObject = new Date();
+    dateObject.setDate(dateObject.getDate() - i);
+
+    dateKeys.push(getDateKeyFromDate(dateObject));
+  }
+
+  return dateKeys;
+}
 
 
 // ==============================
@@ -1592,8 +1664,12 @@ function updateWritingStats() {
 
   renderNovelCharList();
   updateGoalProgress();
+  updateTodayWritingStats();
+  renderWritingLogList();
+  renderWritingChart();
 }
 
+//目標文字数達成率計算
 function updateGoalProgress() {
   const work = getCurrentWork();
   if (!work) return;
@@ -1620,13 +1696,18 @@ function updateGoalProgress() {
   const goalBarFill =
     document.getElementById("goal-bar-fill");
 
+  const goalRemainingChars =
+    document.getElementById("goal-remaining-chars");
+
   if (
     !useGoalCheckbox ||
     !goalSettings ||
     !goalCharInput ||
     !goalProgressPercent ||
-    !goalBarFill
-  ) {
+    !goalBarFill ||
+    !goalRemainingChars 
+  )
+   {
     return;
   }
 
@@ -1644,15 +1725,158 @@ function updateGoalProgress() {
     goalSettings.classList.add("hidden");
   }
 
-  const goal = Number(work.progress.goalChars) || 0;
+const goal = Number(work.progress.goalChars) || 0;
 
-  const percent =
-    goal > 0
-      ? Math.min(100, Math.floor((totalCount / goal) * 100))
-      : 0;
+const rawPercent =
+  goal > 0 ? Math.floor((totalCount / goal) * 100) : 0;
 
-  goalProgressPercent.textContent = percent.toString();
-  goalBarFill.style.width = `${percent}%`;
+const displayPercent =
+  goal > 0 ? rawPercent : 0;
+
+const barPercent =
+  Math.min(100, displayPercent);
+
+const remaining =
+  goal > 0 ? Math.max(0, goal - totalCount) : 0;
+
+goalProgressPercent.textContent = displayPercent.toString();
+goalRemainingChars.textContent = remaining.toLocaleString();
+goalBarFill.style.width = `${barPercent}%`;
+}
+
+//文字数カウント更新関数
+function updateTodayWritingStats() {
+  const addedElement =
+    document.getElementById("today-added-chars");
+
+  const deletedElement =
+    document.getElementById("today-deleted-chars");
+
+  const netElement =
+    document.getElementById("today-net-chars");
+
+  if (!addedElement || !deletedElement || !netElement) return;
+
+  const log = getTodayWritingLog();
+
+  const netChars =
+    log.addedChars - log.deletedChars;
+
+  addedElement.textContent =
+    log.addedChars.toLocaleString();
+
+  deletedElement.textContent =
+    log.deletedChars.toLocaleString();
+
+  netElement.textContent =
+    netChars.toLocaleString();
+}
+
+//ログ一覧表示関数
+function renderWritingLogList() {
+  const listElement =
+    document.getElementById("writing-log-list");
+
+  if (!listElement) return;
+
+  const recentDateKeys = getRecentDateKeys(7);
+
+  listElement.innerHTML = "";
+
+  recentDateKeys.forEach((dateKey) => {
+    const log =
+      userData.writingLogs.find((log) => log.date === dateKey);
+
+    const addedChars = log ? log.addedChars : 0;
+    const deletedChars = log ? log.deletedChars : 0;
+    const netChars = addedChars - deletedChars;
+
+    const row = document.createElement("div");
+    row.className = "writing-log-row";
+
+    row.innerHTML = `
+      <span class="writing-log-date">${dateKey}</span>
+      <span>追加：${addedChars.toLocaleString()}文字</span>
+      <span>削除：${deletedChars.toLocaleString()}文字</span>
+      <span>増減：${netChars.toLocaleString()}文字</span>
+    `;
+
+    listElement.appendChild(row);
+  });
+}
+
+//グラフ描画関数
+function renderWritingChart() {
+  const chartCanvas =
+    document.getElementById("writing-chart");
+
+  if (!chartCanvas) return;
+
+  const recentDateKeys = getRecentDateKeys(7);
+
+  let cumulativeChars = 0;
+
+  const chartData = recentDateKeys.map((dateKey) => {
+    const log = userData.writingLogs.find((log) => {
+      return log.date === dateKey;
+    });
+
+    const addedChars = log ? log.addedChars : 0;
+    const deletedChars = log ? log.deletedChars : 0;
+    const netChars = addedChars - deletedChars;
+
+    cumulativeChars += netChars;
+
+    return {
+      date: dateKey.slice(5),
+      addedChars,
+      cumulativeChars
+    };
+  });
+
+  if (writingChartInstance) {
+    writingChartInstance.destroy();
+  }
+
+  writingChartInstance = new Chart(chartCanvas, {
+    type: "bar",
+    data: {
+      labels: chartData.map((data) => data.date),
+      datasets: [
+        {
+          type: "bar",
+          label: "累計文字数",
+          data: chartData.map((data) => data.cumulativeChars),
+          yAxisID: "y"
+        },
+        {
+          type: "line",
+          label: "今日の追加",
+          data: chartData.map((data) => data.addedChars),
+          yAxisID: "y1",
+          tension: 0.3
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          position: "left"
+        },
+        y1: {
+          beginAtZero: true,
+          position: "right",
+          grid: {
+            drawOnChartArea: false
+          }
+        }
+      }
+    }
+  });
 }
 
 
@@ -2432,7 +2656,14 @@ function initNovelEditor() {
         const novel = getCurrentNovel();
         if (!novel) return;
 
+        const beforeLength = novel.body.length;
+
         novel.body = novelEditor.state.doc.toString();
+
+        const afterLength = novel.body.length;
+
+        recordWritingChange(beforeLength, afterLength);
+
         bodyInput.value = novel.body;
 
         saveData();
