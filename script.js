@@ -193,6 +193,26 @@ const defaultData = {
   rightPaneWidth: 320
 };
 
+const defaultUserData = {
+  profile: {
+    name: "ユーザー"
+  },
+
+  stats: {
+    launchCount: 0,
+    totalWrittenChars: 0,
+    totalWritingTimeMinutes: 0
+  },
+
+  writingLogs: [],
+
+  achievements: [],
+
+  settings: {
+    showAchievements: true
+  }
+};
+
 
 // ==============================
 // 2. データ読み込み・現在状態
@@ -242,6 +262,9 @@ let currentDictionaryPage = null;
 
 // 辞書本文の行下に出す一時メニュー
 let activeLineMenu = null;
+
+//ユーザーデータ用
+const userData = loadUserData();
 
 
 // ==============================
@@ -541,6 +564,41 @@ function updateSaveStatus(text, className = "") {
   if (className) {
     saveStatus.classList.add(className);
   }
+}
+
+function loadUserData() {
+  const savedUserData =
+    localStorage.getItem("fanficStudioUserData");
+
+  if (!savedUserData) {
+    return structuredClone(defaultUserData);
+  }
+
+  const parsedUserData = JSON.parse(savedUserData);
+
+  return {
+    ...structuredClone(defaultUserData),
+    ...parsedUserData,
+    profile: {
+      ...defaultUserData.profile,
+      ...parsedUserData.profile
+    },
+    stats: {
+      ...defaultUserData.stats,
+      ...parsedUserData.stats
+    },
+    settings: {
+      ...defaultUserData.settings,
+      ...parsedUserData.settings
+    }
+  };
+}
+
+function saveUserData() {
+  localStorage.setItem(
+    "fanficStudioUserData",
+    JSON.stringify(userData)
+  );
 }
 
 
@@ -1512,6 +1570,14 @@ function updateWritingStats() {
         return sum + novel.body.length;
       }, 0)
     : 0;
+
+    const launchCount =
+    document.getElementById("launch-count");
+
+    if (launchCount) {
+      launchCount.textContent =
+      userData.stats.launchCount.toLocaleString();
+    }
 
   currentNovelCharCount.textContent = currentCount.toLocaleString();
   totalWorkCharCount.textContent = totalCount.toLocaleString();
@@ -2735,5 +2801,8 @@ if (novels.length > 0) {
 }
 
 updatePaneMenu();
+
+userData.stats.launchCount += 1;
+saveUserData();
 
 console.log("Fanfic Studio 起動！");
