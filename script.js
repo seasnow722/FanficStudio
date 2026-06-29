@@ -367,6 +367,9 @@ const modalCancel = document.getElementById("modal-cancel");
 const novelCharList =
   document.getElementById("novel-char-list");
 
+const writingChartRange =
+  document.getElementById("writing-chart-range");
+
 
 // ==============================
 // 4. 汎用関数
@@ -631,16 +634,31 @@ function getTodayWritingLog() {
   });
 
   if (!log) {
-    log = {
-      date: today,
-      addedChars: 0,
-      deletedChars: 0
-    };
+  log = {
+    date: today,
+    launch: false,
+    addedChars: 0,
+    deletedChars: 0,
+    dictionaryEdits: 0,
+    timelineEdits: 0,
+    flagEdits: 0,
+    relationEdits: 0,
+    pomodoro: 0
+  };
 
     userData.writingLogs.push(log);
   }
 
   return log;
+}
+
+//起動記録関数
+function recordTodayLaunch() {
+  const log = getTodayWritingLog();
+
+  log.launch = true;
+
+  saveUserData();
 }
 
 //文字数変化を記録する関数
@@ -680,6 +698,65 @@ function getRecentDateKeys(days) {
   }
 
   return dateKeys;
+}
+
+//草
+function getAllWritingLogDateKeys() {
+  return userData.writingLogs
+    .map((log) => log.date)
+    .sort();
+}
+
+function getWritingChartDateKeys() {
+  const rangeSelect =
+    document.getElementById("writing-chart-range");
+
+  const range = rangeSelect ? rangeSelect.value : "7";
+
+  if (range === "all") {
+    const allDateKeys = getAllWritingLogDateKeys();
+
+    if (allDateKeys.length === 0) {
+      return getRecentDateKeys(7);
+    }
+
+    return allDateKeys;
+  }
+
+  return getRecentDateKeys(Number(range));
+}
+
+
+function calculateGrassScore(log) {
+  if (!log) return 0;
+
+  let score = 0;
+
+  if (log.launch) score += 1;
+
+  if (log.addedChars > 0) score += 1;
+  if (log.addedChars >= 10) score += 1;
+  if (log.addedChars >= 100) score += 1;
+  if (log.addedChars >= 200) score += 1;
+  if (log.addedChars >= 300) score += 1;
+  if (log.addedChars >= 500) score += 1;
+  if (log.addedChars >= 1000) score += 1;
+
+  score += Math.min(log.dictionaryEdits || 0, 1);
+  score += Math.min(log.timelineEdits || 0, 1);
+  score += Math.min(log.flagEdits || 0, 1);
+  score += Math.min(log.relationEdits || 0, 1);
+  score += Math.min(log.pomodoro || 0, 1);
+
+  return score;
+}
+
+function getGrassLevel(score) {
+  if (score <= 0) return 0;
+  if (score <= 2) return 1;
+  if (score <= 4) return 2;
+  if (score <= 6) return 3;
+  return 4;
 }
 
 
@@ -1603,6 +1680,10 @@ function switchMainTab(tabName) {
   if (tabName === "progress") {
   updateWritingStats();
   }
+
+  if (tabName === "profile") {
+  updateWritingStats();
+  }
 }
 
 
@@ -1667,6 +1748,7 @@ function updateWritingStats() {
   updateTodayWritingStats();
   renderWritingLogList();
   renderWritingChart();
+  renderActivityGrass(); 
 }
 
 //目標文字数達成率計算
@@ -1779,7 +1861,7 @@ function renderWritingLogList() {
 
   if (!listElement) return;
 
-  const recentDateKeys = getRecentDateKeys(7);
+  const recentDateKeys = getWritingChartDateKeys();
 
   listElement.innerHTML = "";
 
@@ -1812,11 +1894,11 @@ function renderWritingChart() {
 
   if (!chartCanvas) return;
 
-  const recentDateKeys = getRecentDateKeys(7);
+  const dateKeys = getWritingChartDateKeys();
 
   let cumulativeChars = 0;
 
-  const chartData = recentDateKeys.map((dateKey) => {
+  const chartData = dateKeys.map((dateKey) => {
     const log = userData.writingLogs.find((log) => {
       return log.date === dateKey;
     });
@@ -1879,6 +1961,126 @@ function renderWritingChart() {
   });
 }
 
+function renderActivityGrass() {
+  const grassElement =
+    document.getElementById("activity-grass");
+
+  if (!grassElement) return;
+
+  const dateKeys = getRecentDateKeys(35);
+
+  grassElement.innerHTML = "";
+
+  dateKeys.forEach((dateKey) => {
+    const log = userData.writingLogs.find((log) => {
+      return log.date === dateKey;
+    });
+
+    const score = calculateGrassScore(log);
+    const level = getGrassLevel(score);
+
+    const cell = document.createElement("button");
+    cell.className = `grass-cell level-${level}`;
+    cell.title = `${dateKey} / ${score}点`;
+
+    cell.addEventListener("click", () => {
+    renderActivityReceipt(dateKey);
+  });
+
+grassElement.appendChild(cell);
+  });
+}
+
+function renderActivityReceipt(dateKey) {
+  const receiptElement =
+    document.getElementById("activity-receipt");
+
+  if (!receiptElement) return;
+
+  const log = userData.writingLogs.find((log) => {
+    return log.date === dateKey;
+  });
+
+  if (!log) {
+    receiptElement.innerHTML = `
+      <div class="receipt-card">
+        <h3>${dateKey}</h3>
+        <p>この日の記録はありません。</p>
+      </div>
+    `;
+    return;
+  }
+
+  const netChars =
+    (log.addedChars || 0) - (log.deletedChars || 0);
+
+  const items = [];
+
+  if (log.launch) {
+    items.push(["起動", "○"]);
+  }
+
+  if (log.addedChars > 0) {
+    items.push(["本文追加", `+${log.addedChars.toLocaleString()}文字`]);
+  }
+
+  if (log.deletedChars > 0) {
+    items.push(["本文削除", `-${log.deletedChars.toLocaleString()}文字`]);
+  }
+
+  if (netChars !== 0) {
+    const sign = netChars > 0 ? "+" : "";
+    items.push(["本文増減", `${sign}${netChars.toLocaleString()}文字`]);
+  }
+
+  if (log.dictionaryEdits > 0) {
+    items.push(["辞書編集", `${log.dictionaryEdits}回`]);
+  }
+
+  if (log.timelineEdits > 0) {
+    items.push(["時系列編集", `${log.timelineEdits}回`]);
+  }
+
+  if (log.flagEdits > 0) {
+    items.push(["フラグ編集", `${log.flagEdits}回`]);
+  }
+
+  if (log.relationEdits > 0) {
+    items.push(["相関図編集", `${log.relationEdits}回`]);
+  }
+
+  if (log.pomodoro > 0) {
+    items.push(["ポモドーロ", `${log.pomodoro}回`]);
+  }
+
+  const score = calculateGrassScore(log);
+
+  receiptElement.innerHTML = `
+    <div class="receipt-card">
+      <div class="receipt-header">
+        <h3>Fanfic Studio 活動レシート</h3>
+        <span>${dateKey}</span>
+      </div>
+
+      <div class="receipt-items">
+        ${items
+          .map((item) => {
+            return `
+              <div class="receipt-row">
+                <span>${item[0]}</span>
+                <strong>${item[1]}</strong>
+              </div>
+            `;
+          })
+          .join("")}
+      </div>
+
+      <div class="receipt-footer">
+        今日の活動スコア：${score}点
+      </div>
+    </div>
+  `;
+}
 
 function renderNovelCharList() {
   const listElement =
@@ -2605,6 +2807,15 @@ function setupProgressEvents() {
     saveData();
     updateGoalProgress();
   });
+
+  const chartRangeSelect =
+  document.getElementById("writing-chart-range");
+
+  if (chartRangeSelect) {
+    chartRangeSelect.addEventListener("change", () => {
+      renderWritingChart();
+    });
+  }
 }
 
 
@@ -3184,6 +3395,7 @@ if (novels.length > 0) {
 updatePaneMenu();
 
 userData.stats.launchCount += 1;
+recordTodayLaunch();
 saveUserData();
 setupProgressEvents();
 

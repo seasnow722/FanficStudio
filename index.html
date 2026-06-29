@@ -103,6 +103,7 @@
     <button class="main-tab" data-tab="relation">相関図</button>
     <button class="main-tab" data-tab="flags">フラグ</button>
     <button class="main-tab" data-tab="progress">進捗</button>
+    <button class="main-tab" data-tab="profile">執筆プロフィール</button>
   </div>
 
   <div id="novel-panel" class="tab-panel">
@@ -119,71 +120,100 @@
   <div id="editor"></div>
   </div>
 
-  <div id="progress-panel" class="tab-panel hidden">
+<div id="progress-panel" class="tab-panel hidden">
   <h2>進捗</h2>
 
-<section class="progress-block">
-  <h3>作品</h3>
+  <section class="progress-block">
+    <h3>作品</h3>
 
-  <div class="writing-stats-panel">
-    <div>現在の本文：<span id="current-novel-char-count">0</span>文字</div>
-    <div>作品全体：<span id="total-work-char-count">0</span>文字</div>
-  </div>
+    <div class="writing-stats-panel">
+      <div>現在の本文：<span id="current-novel-char-count">0</span>文字</div>
+      <div>作品全体：<span id="total-work-char-count">0</span>文字</div>
+    </div>
 
-  <div class="progress-section">
-    <label class="goal-toggle-label">
-      <input id="use-goal-checkbox" type="checkbox">
-      目標文字数を使う
-    </label>
-
-    <div id="goal-settings" class="goal-settings hidden">
-      <label>
-        目標文字数
-        <input id="goal-char-input" type="number" min="0" step="1000">
+    <div class="progress-section">
+      <label class="goal-toggle-label">
+        <input id="use-goal-checkbox" type="checkbox">
+        目標文字数を使う
       </label>
 
-      <div class="goal-result">
-        達成率：<span id="goal-progress-percent">0</span>%
-      </div>
-      <div class="goal-result">
-        あと：<span id="goal-remaining-chars">0</span>文字
-      </div>
+      <div id="goal-settings" class="goal-settings hidden">
+        <label>
+          目標文字数
+          <input id="goal-char-input" type="number" min="0" step="1000">
+        </label>
 
-      <div class="goal-bar">
-        <div id="goal-bar-fill"></div>
+        <div class="goal-result">
+          達成率：<span id="goal-progress-percent">0</span>%
+        </div>
+
+        <div class="goal-result">
+          あと：<span id="goal-remaining-chars">0</span>文字
+        </div>
+
+        <div class="goal-bar">
+          <div id="goal-bar-fill"></div>
+        </div>
       </div>
+    </div>
+
+    <div class="progress-section">
+      <h3>本文ごとの文字数</h3>
+      <div id="novel-char-list"></div>
+    </div>
+  </section>
+</div>
+
+<div id="profile-panel" class="tab-panel hidden">
+  <h2>執筆プロフィール</h2>
+
+  <section class="progress-block">
+    <h3>今日の記録</h3>
+
+    <div class="writing-stats-panel">
+      <div>起動回数：<span id="launch-count">0</span>回</div>
+      <div>今日の追加：<span id="today-added-chars">0</span>文字</div>
+      <div>今日の削除：<span id="today-deleted-chars">0</span>文字</div>
+      <div>今日の増減：<span id="today-net-chars">0</span>文字</div>
+    </div>
+
+    <div class="progress-section">
+      <h3>文字数グラフ</h3>
+
+    <div class="progress-section">
+      <h3>活動カレンダー</h3>
+      <div id="activity-grass" class="activity-grass"></div>
+    </div>
+
+    <div class="progress-section">
+      <h3>活動レシート</h3>
+    <div id="activity-receipt" class="activity-receipt">
+      草をクリックすると、その日の記録が表示されます。
     </div>
   </div>
 
-  <div class="progress-section">
-    <h3>本文ごとの文字数</h3>
-    <div id="novel-char-list"></div>
-  </div>
-</section>
+      <div class="chart-toolbar">
+        <label>
+          表示期間
+          <select id="writing-chart-range">
+            <option value="7">過去7日</option>
+            <option value="30">過去30日</option>
+            <option value="365">過去365日</option>
+            <option value="all">全期間</option>
+          </select>
+        </label>
+      </div>
 
-<section class="progress-block">
-  <h3>執筆プロフィール</h3>
-
-  <div class="writing-stats-panel">
-    <div>起動回数：<span id="launch-count">0</span>回</div>
-    <div>今日の追加：<span id="today-added-chars">0</span>文字</div>
-    <div>今日の削除：<span id="today-deleted-chars">0</span>文字</div>
-    <div>今日の増減：<span id="today-net-chars">0</span>文字</div>
-  </div>
-
-  <div class="progress-section">
-    <h3>文字数グラフ</h3>
-    <div class="writing-chart">
-      <canvas id="writing-chart"></canvas>
+      <div class="writing-chart">
+        <canvas id="writing-chart"></canvas>
+      </div>
     </div>
-  </div>
 
-  <div class="progress-section">
-    <h3>過去7日分の執筆ログ</h3>
-    <div id="writing-log-list"></div>
-  </div>
-</section>
-
+    <div class="progress-section">
+      <h3>過去7日分の執筆ログ</h3>
+      <div id="writing-log-list"></div>
+    </div>
+  </section>
 </div>
 
 

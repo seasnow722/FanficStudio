@@ -1159,7 +1159,8 @@ body {
 #timeline-panel,
 #flags-panel,
 #relation-panel,
-#progress-panel {
+#progress-panel,
+#profile-panel {
   overflow-y: auto;
 }
 
@@ -1314,4 +1315,113 @@ body {
 .progress-block > h3 {
   margin-top: 0;
   font-size: 18px;
+}
+
+.chart-toolbar {
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.chart-toolbar select {
+  margin-left: 6px;
+  padding: 4px 8px;
+}
+
+#profile-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.main-page {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tab-panel {
+  flex: 1;
+  min-height: 0;
+}
+
+.activity-grass {
+  display: grid;
+  grid-template-columns: repeat(7, 14px);
+  grid-auto-rows: 14px;
+  gap: 4px;
+}
+
+.grass-cell {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid #ddd0bd;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.grass-cell.level-0 {
+  background: #eee7dc;
+}
+
+.grass-cell.level-1 {
+  background: #d8c3a5;
+}
+
+.grass-cell.level-2 {
+  background: #c49a6c;
+}
+
+.grass-cell.level-3 {
+  background: #a87f52;
+}
+
+.grass-cell.level-4 {
+  background: #6f4535;
+}
+
+.activity-receipt {
+  min-height: 120px;
+}
+
+.receipt-card {
+  max-width: 360px;
+  padding: 16px;
+  background: #fffaf3;
+  border: 1px solid #ddd0bd;
+  border-radius: 10px;
+  color: #5a4635;
+}
+
+.receipt-header {
+  border-bottom: 1px dashed #ddd0bd;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+.receipt-header h3 {
+  margin: 0 0 4px;
+}
+
+.receipt-header span {
+  font-size: 13px;
+  color: #777;
+}
+
+.receipt-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 0;
+  border-bottom: 1px dashed #ead7b7;
+}
+
+.receipt-row:last-child {
+  border-bottom: none;
+}
+
+.receipt-footer {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed #ddd0bd;
+  font-weight: bold;
 }
