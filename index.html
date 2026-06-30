@@ -219,9 +219,26 @@
 
   <div id="timeline-panel" class="tab-panel hidden">
   <h2>時系列</h2>
-  <button id="new-event-button" class="new-page-button">＋ イベント追加</button>
-  <div id="timeline-list"></div>
+
+  <div class="timeline-layout">
+    <aside id="timeline-side-panel" class="timeline-side-panel">
+      <button id="new-event-button" class="new-page-button">＋ イベント追加</button>
+      <div id="timeline-list"></div>
+    </aside>
+
+    <button
+      id="toggle-timeline-side-button"
+      class="timeline-side-toggle"
+      title="時系列リストを開閉"
+    >
+      ◀
+    </button>
+
+    <section id="timeline-detail-panel" class="timeline-detail-panel">
+      <p class="empty-message">左のイベントを選択してください。</p>
+    </section>
   </div>
+</div>
 
   <div id="relation-panel" class="tab-panel hidden">
     <h2>相関図</h2>

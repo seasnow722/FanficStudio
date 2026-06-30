@@ -1425,3 +1425,137 @@ body {
   border-top: 1px dashed #ddd0bd;
   font-weight: bold;
 }
+
+.timeline-layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 240px 32px 1fr;
+  gap: 8px;
+}
+
+.timeline-side-panel {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px;
+  background: #fffaf3;
+  border: 1px solid #ddd0bd;
+  border-radius: 8px;
+}
+
+.timeline-detail-panel {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px;
+  background: #fffaf3;
+  border: 1px solid #ddd0bd;
+  border-radius: 8px;
+}
+
+.timeline-side-toggle {
+  align-self: start;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: #ddd0bd;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#timeline-panel.timeline-side-collapsed .timeline-layout {
+  grid-template-columns: 0px 32px 1fr;
+}
+
+#timeline-panel.timeline-side-collapsed .timeline-side-panel {
+  display: none;
+}
+
+.timeline-list-button {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 8px;
+  border: none;
+  background: #eee2d0;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.timeline-list-button:hover {
+  background: #d8c3a5;
+}
+
+.timeline-list-button.active {
+  background: #c49a6c;
+  color: white;
+}
+
+#timeline-editor {
+  min-height: 220px;
+  border: 1px solid #ddd0bd;
+  border-radius: 8px;
+  background: #fffaf3;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+#timeline-editor .cm-editor {
+  min-height: 220px;
+  height: 220px;
+}
+
+#timeline-editor .cm-scroller {
+  min-height: 220px;
+}
+
+#timeline-editor .cm-scroller {
+  font-family: "Yu Gothic", "Hiragino Sans", sans-serif;
+  line-height: 1.7;
+  padding: 12px;
+}
+
+.event-pages,
+.event-flags {
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 10px;
+  margin-top: 12px;
+  background: #fffaf3;
+  border: 1px solid #ddd0bd;
+  border-radius: 8px;
+}
+
+.timeline-title {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  font-size: 20px;
+  font-weight: bold;
+  border: 1px solid #ddd0bd;
+  border-radius: 8px;
+  background: #fffaf3;
+}
+
+.timeline-list-button {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  background: #eee2d0;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.timeline-list-button:hover {
+  background: #d8c3a5;
+}
+
+.timeline-list-button.active {
+  background: #c49a6c;
+  color: white;
+  font-weight: bold;
+}

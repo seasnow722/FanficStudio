@@ -248,6 +248,8 @@ if (currentWorkId) {
 // novel / timeline / relation / flags のどれか
 let currentMainTab = "novel";
 
+let currentEventId = null;
+
 // 辞書ページの表示モード
 // "base" = 設定資料のみ
 // "overlay" = 設定資料 + 現在の作品注釈
@@ -261,6 +263,9 @@ let rightPaneWidth = data.rightPaneWidth;
 let dictionaryEditor = null;
 //今編集している辞書
 let currentDictionaryPage = null;
+//辞書本文codemirror化
+let timelineEditor = null;
+let currentTimelineEvent = null;
 
 // 辞書本文の行下に出す一時メニュー
 let activeLineMenu = null;
@@ -302,6 +307,15 @@ const mainTabs = document.querySelectorAll(".main-tab");
 const tabPanels = document.querySelectorAll(".tab-panel");
 
 const timelineList = document.getElementById("timeline-list");
+
+const timelineDetailPanel =
+  document.getElementById("timeline-detail-panel");
+
+const toggleTimelineSideButton =
+  document.getElementById("toggle-timeline-side-button");
+
+const timelinePanel =
+  document.getElementById("timeline-panel");
 
 const newFlagButton = document.getElementById("new-flag-button");
 const flagList = document.getElementById("flag-list");
@@ -1392,6 +1406,17 @@ groupTitle.className = "novel-group-title";
 // 時系列タブにイベント一覧を表示する
 // イベントのタイトル・本文・関連フラグ・上下移動・削除ボタンもここで作る
 function renderTimeline() {
+  renderTimelineList();
+
+  if (currentEventId) {
+    renderTimelineDetail(currentEventId);
+  } else {
+    timelineDetailPanel.innerHTML =
+      `<p class="empty-message">左のイベントを選択してください。</p>`;
+  }
+}
+
+function renderTimelineList() {
   const work = getCurrentWork();
   if (!work) return;
 
@@ -1401,157 +1426,214 @@ function renderTimeline() {
 
   timelineList.innerHTML = "";
 
-  const sortedEvents = [...work.events].sort((a, b) => a.order - b.order);
+  const sortedEvents = [...work.events].sort((a, b) => {
+    return a.order - b.order;
+  });
 
-sortedEvents.forEach((event) => {
-  // 古いイベントデータに relatedPageIds がない場合、空配列を足す
+  sortedEvents.forEach((event, index) => {
+    const button = document.createElement("button");
+    button.className = "timeline-list-button";
+
+    const displayNumber =
+      String(index + 1).padStart(4, "0");
+
+    button.textContent =
+      event.id === currentEventId
+      ? `▶ ${displayNumber}　${event.title}`
+      : `${displayNumber}　${event.title}`;
+
+    if (event.id === currentEventId) {
+      button.classList.add("active");
+    }
+
+    button.addEventListener("click", () => {
+      currentEventId = event.id;
+
+      renderTimelineList();
+      renderTimelineDetail(event.id);
+    });
+
+    timelineList.appendChild(button);
+  });
+}
+
+function renderTimelineDetail(eventId) {
+  const work = getCurrentWork();
+  if (!work) return;
+
+  const event = work.events.find((event) => {
+    return event.id === eventId;
+  });
+
+  if (!event) {
+    timelineDetailPanel.innerHTML =
+      `<p class="empty-message">イベントが見つかりません。</p>`;
+    return;
+  }
+
   if (!event.relatedPageIds) {
     event.relatedPageIds = [];
   }
 
-  // 古いイベントデータに flags がない場合、空配列を足す
   if (!event.flags) {
     event.flags = [];
   }
 
-  const eventCard = document.createElement("div");
-  eventCard.className = "timeline-card";
-
-    const pageCheckboxes = pages.map((page) => {
-      const checked =
-        event.relatedPageIds.includes(page.id)
+  const pageCheckboxes = pages.map((page) => {
+    const checked =
+      event.relatedPageIds.includes(page.id)
         ? "checked"
         : "";
 
-      return `
+    return `
       <label class="event-page-label">
         <input
           type="checkbox"
           class="event-page-checkbox"
           value="${page.id}"
-        ${checked}
-      >
-      ${page.title}
-    </label>
-  `;
-}).join("");
+          ${checked}
+        >
+        ${page.title}
+      </label>
+    `;
+  }).join("");
 
-const flagCheckboxes = work.flags.map((flag) => {
-  const checked = event.flags.includes(flag.id) ? "checked" : "";
+  const flagCheckboxes = work.flags.map((flag) => {
+    const checked =
+      event.flags.includes(flag.id)
+        ? "checked"
+        : "";
 
-  return `
-    <label class="event-flag-label">
-      <input type="checkbox" class="event-flag-checkbox" value="${flag.id}" ${checked}>
-      ${flag.title}
-    </label>
-  `;
-}).join("");
+    return `
+      <label class="event-flag-label">
+        <input
+          type="checkbox"
+          class="event-flag-checkbox"
+          value="${flag.id}"
+          ${checked}
+        >
+        ${flag.title}
+      </label>
+    `;
+  }).join("");
 
-eventCard.innerHTML = `
-  <input class="timeline-title" value="${event.title}">
-  <textarea class="timeline-body">${event.body}</textarea>
-  <div class="event-pages">
-    <div class="event-pages-title">
-      関連辞書ページ
+  timelineDetailPanel.innerHTML = `
+    <input class="timeline-title" value="${event.title}">
+
+    <div id="timeline-editor"></div>
+
+    <div class="event-pages">
+      <div class="event-pages-title">📖 関連設定資料</div>
+      ${pageCheckboxes || "<p class='empty-message'>辞書ページがまだありません。</p>"}
     </div>
 
-  ${pageCheckboxes}
-</div>
-  <div class="event-flags">
-    <div class="event-flags-title">関連フラグ</div>
-    ${flagCheckboxes || "<p class='empty-message'>フラグがまだありません。</p>"}
-  </div>
+    <div class="event-flags">
+      <div class="event-flags-title">🚩 関連フラグ</div>
+      ${flagCheckboxes || "<p class='empty-message'>フラグがまだありません。</p>"}
+    </div>
 
-  <div class="side-button-row">
-    <button class="side-button move-event-up">↑</button>
-    <button class="side-button move-event-down">↓</button>
-    <button class="side-button delete-event">削除</button>
-  </div>
-`;
-    const titleInput = eventCard.querySelector(".timeline-title");
-    const bodyInput = eventCard.querySelector(".timeline-body");
-    const upButton = eventCard.querySelector(".move-event-up");
-    const downButton = eventCard.querySelector(".move-event-down");
-    const deleteButton = eventCard.querySelector(".delete-event");
-    // イベントに紐付ける辞書ページのチェックボックスを取得
-    const pageCheckboxInputs = eventCard.querySelectorAll(".event-page-checkbox");
-    //イベントに紐付けるフラグのチェックボックスを取得
-    const flagCheckboxInputs = eventCard.querySelectorAll(".event-flag-checkbox");
+    <div class="side-button-row">
+      <button class="side-button move-event-up">↑</button>
+      <button class="side-button move-event-down">↓</button>
+      <button class="side-button delete-event">削除</button>
+    </div>
+  `;
 
+  setupTimelineDetailEvents(event);
+}
 
-    
-// チェックが変わったら、event.relatedPageIds に辞書ページIDを追加・削除する
-pageCheckboxInputs.forEach((checkbox) => {
-  checkbox.addEventListener("change", () => {
-    const pageId = checkbox.value;
+function setupTimelineDetailEvents(event) {
+  const titleInput =
+    timelineDetailPanel.querySelector(".timeline-title");
 
-    if (!event.relatedPageIds) {
-      event.relatedPageIds = [];
-    }
+  const upButton =
+    timelineDetailPanel.querySelector(".move-event-up");
 
-    if (checkbox.checked) {
-      if (!event.relatedPageIds.includes(pageId)) {
-        event.relatedPageIds.push(pageId);
-      }
-    } else {
-      event.relatedPageIds = event.relatedPageIds.filter(
-        (id) => id !== pageId
-      );
-    }
+  const downButton =
+    timelineDetailPanel.querySelector(".move-event-down");
+
+  const deleteButton =
+    timelineDetailPanel.querySelector(".delete-event");
+
+    initTimelineEditor(event);
+
+  const pageCheckboxInputs =
+    timelineDetailPanel.querySelectorAll(".event-page-checkbox");
+
+  const flagCheckboxInputs =
+    timelineDetailPanel.querySelectorAll(".event-flag-checkbox");
+
+  titleInput.addEventListener("input", () => {
+    event.title = titleInput.value;
 
     saveData();
+    renderTimelineList();
   });
-});
 
-// チェックが変わったら、event.flags にフラグIDを追加・削除する
-flagCheckboxInputs.forEach((checkbox) => {
-  checkbox.addEventListener("change", () => {
-    const flagId = checkbox.value;
+  pageCheckboxInputs.forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      const pageId = checkbox.value;
 
-    if (!event.flags) {
-      event.flags = [];
-    }
-
-    if (checkbox.checked) {
-      if (!event.flags.includes(flagId)) {
-        event.flags.push(flagId);
+      if (!event.relatedPageIds) {
+        event.relatedPageIds = [];
       }
-    } else {
-      event.flags = event.flags.filter((id) => id !== flagId);
-    }
+
+      if (checkbox.checked) {
+        if (!event.relatedPageIds.includes(pageId)) {
+          event.relatedPageIds.push(pageId);
+        }
+      } else {
+        event.relatedPageIds =
+          event.relatedPageIds.filter((id) => id !== pageId);
+      }
+
+      saveData();
+    });
+  });
+
+  flagCheckboxInputs.forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      const flagId = checkbox.value;
+
+      if (!event.flags) {
+        event.flags = [];
+      }
+
+      if (checkbox.checked) {
+        if (!event.flags.includes(flagId)) {
+          event.flags.push(flagId);
+        }
+      } else {
+        event.flags =
+          event.flags.filter((id) => id !== flagId);
+      }
+
+      saveData();
+    });
+  });
+
+  upButton.addEventListener("click", () => {
+    moveEvent(event, -1);
+  });
+
+  downButton.addEventListener("click", () => {
+    moveEvent(event, 1);
+  });
+
+  deleteButton.addEventListener("click", () => {
+    const ok = confirm(`「${event.title}」を削除しますか？`);
+    if (!ok) return;
+
+    const work = getCurrentWork();
+    if (!work) return;
+
+    work.events =
+      work.events.filter((item) => item.id !== event.id);
+
+    currentEventId = null;
 
     saveData();
-  });
-});
-
-    titleInput.addEventListener("input", () => {
-      event.title = titleInput.value;
-      saveData();
-    });
-
-    bodyInput.addEventListener("input", () => {
-      event.body = bodyInput.value;
-      saveData();
-    });
-
-    upButton.addEventListener("click", () => {
-      moveEvent(event, -1);
-    });
-
-    downButton.addEventListener("click", () => {
-      moveEvent(event, 1);
-    });
-
-    deleteButton.addEventListener("click", () => {
-      const ok = confirm(`「${event.title}」を削除しますか？`);
-      if (!ok) return;
-
-      work.events = work.events.filter((e) => e.id !== event.id);
-      saveData();
-      renderTimeline();
-    });
-
-    timelineList.appendChild(eventCard);
+    renderTimeline();
   });
 }
 
@@ -2455,6 +2537,9 @@ newEventButton.addEventListener("click", () => {
   };
 
   work.events.push(newEvent);
+
+  currentEventId = newEvent.id;
+
   saveData();
   renderTimeline();
 });
@@ -2818,6 +2903,16 @@ function setupProgressEvents() {
   }
 }
 
+//開閉ボタン
+toggleTimelineSideButton.addEventListener("click", () => {
+  timelinePanel.classList.toggle("timeline-side-collapsed");
+
+  if (timelinePanel.classList.contains("timeline-side-collapsed")) {
+    toggleTimelineSideButton.textContent = "▶";
+  } else {
+    toggleTimelineSideButton.textContent = "◀";
+  }
+});
 
 
 // ==============================
@@ -2879,6 +2974,53 @@ function initNovelEditor() {
 
         saveData();
         updateNovelCharCount();
+      }
+    }
+  });
+}
+
+function initTimelineEditor(event) {
+  const timelineEditorElement =
+    document.getElementById("timeline-editor");
+
+  if (!timelineEditorElement) return;
+
+  if (timelineEditor) {
+    timelineEditor.destroy();
+    timelineEditor = null;
+  }
+
+  currentTimelineEvent = event;
+
+  timelineEditor = new EditorView({
+    doc: event.body || "",
+    parent: timelineEditorElement,
+    extensions: [
+      history(),
+
+      keymap.of([
+        ...historyKeymap,
+        {
+          key: "Ctrl-Shift-z",
+          run: redo
+        },
+        {
+          key: "Mod-Shift-z",
+          run: redo
+        }
+      ]),
+
+      EditorView.lineWrapping
+    ],
+
+    dispatch: (transaction) => {
+      timelineEditor.update([transaction]);
+
+      if (transaction.docChanged) {
+        currentTimelineEvent.body =
+          timelineEditor.state.doc.toString();
+
+        saveData();
       }
     }
   });
