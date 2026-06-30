@@ -1559,3 +1559,199 @@ body {
   color: white;
   font-weight: bold;
 }
+
+.related-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.related-chip {
+  border: none;
+  padding: 5px 8px;
+  background: #d8c3a5;
+  color: #4b3728;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.related-chip:hover {
+  background: #c49a6c;
+  color: white;
+}
+
+.timeline-page-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  border: 1px solid #ddd0bd;
+  border-radius: 6px;
+  background: #fffaf3;
+}
+
+.timeline-page-search-results {
+  margin-top: 6px;
+}
+
+.search-result-button {
+  display: block;
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 6px 8px;
+  border: none;
+  background: #eee2d0;
+  text-align: left;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.search-result-button:hover {
+  background: #d8c3a5;
+}
+
+.related-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: 5px 8px;
+
+  background: #d8c3a5;
+  border-radius: 999px;
+}
+
+.remove-related-page {
+  border: none;
+  background: transparent;
+
+  cursor: pointer;
+
+  font-weight: bold;
+}
+
+.remove-related-page:hover {
+  color: crimson;
+}
+
+.page-button-row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.page-button-row .page-button {
+  flex: 1;
+}
+
+.hide-page-button,
+.restore-page-button {
+  border: none;
+  padding: 4px 6px;
+  background: #ddd0bd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.hide-page-button:hover,
+.restore-page-button:hover {
+  background: #c49a6c;
+  color: white;
+}
+
+.hidden-page-group {
+  margin-top: 16px;
+  opacity: 0.9;
+}
+
+.hidden-folder-title {
+  margin: 8px 0 4px;
+  font-size: 13px;
+  font-weight: bold;
+  color: #6f4535;
+}
+
+.hidden-page-button {
+  opacity: 0.75;
+}
+
+.hide-page-button,
+.restore-page-button {
+    width: 24px;
+    height: 24px;
+
+    padding: 0;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.page-button-row .hide-page-button {
+    opacity: 0;
+    transition: .15s;
+}
+
+.page-button-row:hover .hide-page-button {
+    opacity: 1;
+}
+
+.hide-page-button,
+.restore-page-button {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  flex: 0 0 24px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.hide-page-button {
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.page-button-row:hover .hide-page-button {
+  opacity: 1;
+}
+
+.hide-page-button:hover,
+.restore-page-button:hover {
+  background: #ddd0bd;
+}
+
+.timeline-toolbar{
+    display:flex;
+    gap:8px;
+    margin-bottom:12px;
+}
+
+.timeline-view-button{
+    padding:6px 12px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    background:#eee2d0;
+}
+
+.timeline-view-button.active{
+    background:#c49a6c;
+    color:white;
+}
+
+.timeline-layout.list-collapsed .timeline-list{
+    display:none;
+}
+
+.timeline-layout.list-collapsed .timeline-detail{
+    width:100%;
+}

@@ -266,12 +266,14 @@ let currentDictionaryPage = null;
 //辞書本文codemirror化
 let timelineEditor = null;
 let currentTimelineEvent = null;
+let timelineViewMode = "detail";
 
 // 辞書本文の行下に出す一時メニュー
 let activeLineMenu = null;
 
 //ユーザーデータ用
 const userData = loadUserData();
+
 
 
 // ==============================
@@ -383,6 +385,9 @@ const novelCharList =
 
 const writingChartRange =
   document.getElementById("writing-chart-range");
+
+const timelineLayout =
+  document.getElementById("timeline-layout");
 
 
 // ==============================
@@ -509,6 +514,14 @@ function getCurrentWork() {
     useGoal: false,
     goalChars: 0
   };
+  }
+
+  if (!work.hiddenPageIds) {
+    work.hiddenPageIds = [];
+  }
+
+  if (work.hiddenPagesCollapsed === undefined) {
+    work.hiddenPagesCollapsed = false;
   }
 
   return work;
@@ -1258,99 +1271,109 @@ function renderPageList() {
   const isTagSearch = keyword.startsWith("#");
   const tagKeyword = keyword.replace("#", "");
 
+  const work = getCurrentWork();
+
+  const hiddenPageIds =
+    work && dictionaryLayerMode === "overlay"
+      ? work.hiddenPageIds || []
+      : [];
+
   const sortedFolders = [...folders].sort((a, b) => a.order - b.order);
 
   sortedFolders.forEach((folder) => {
     const folderPages = pages
-    .filter((page) => page.folderId === folder.id)
-    .filter((page) => {
-      if (!keyword) return true;
+      .filter((page) => page.folderId === folder.id)
+      .filter((page) => !hiddenPageIds.includes(page.id))
+      .filter((page) => {
+        if (!keyword) return true;
 
-if (isTagSearch) {
-  return page.tags.some((tag) =>
-    tag.toLowerCase().includes(tagKeyword)
-  );
-}
+        if (isTagSearch) {
+          return page.tags.some((tag) =>
+            tag.toLowerCase().includes(tagKeyword)
+          );
+        }
 
-  return (
-    page.title.toLowerCase().includes(keyword) ||
-    page.body.toLowerCase().includes(keyword) ||
-    page.tags.join(" ").toLowerCase().includes(keyword)
-    );
-  })
-  .sort((a, b) => a.order - b.order);
+        return (
+          page.title.toLowerCase().includes(keyword) ||
+          page.body.toLowerCase().includes(keyword) ||
+          page.tags.join(" ").toLowerCase().includes(keyword)
+        );
+      })
+      .sort((a, b) => a.order - b.order);
 
-    //if (folderPages.length === 0) return;
     if (keyword && folderPages.length === 0) return;
 
     const group = document.createElement("section");
     group.className = "page-group";
 
-const folderHeader = document.createElement("div");
-folderHeader.className = "folder-header";
+    const folderHeader = document.createElement("div");
+    folderHeader.className = "folder-header";
 
-const collapseButton = document.createElement("button");
-collapseButton.addEventListener("click", () => {
-  folder.collapsed = !folder.collapsed;
+    const collapseButton = document.createElement("button");
+    collapseButton.className = "folder-action-button";
+    collapseButton.textContent = folder.collapsed ? "▶" : "▼";
 
-  saveData();
-  renderPageList();
-});
-collapseButton.className = "folder-action-button";
-collapseButton.textContent =
-  folder.collapsed ? "▶" : "▼";
+    collapseButton.addEventListener("click", () => {
+      folder.collapsed = !folder.collapsed;
+      saveData();
+      renderPageList();
+    });
 
-const groupTitle = document.createElement("h3");
-groupTitle.className = "page-group-title";
-groupTitle.textContent = folder.title;
+    const groupTitle = document.createElement("h3");
+    groupTitle.className = "page-group-title";
+    groupTitle.textContent = folder.title;
 
-const renameButton = document.createElement("button");
-renameButton.className = "folder-action-button";
-renameButton.textContent = "✎";
-renameButton.title = "フォルダ名を変更";
+    const renameButton = document.createElement("button");
+    renameButton.className = "folder-action-button";
+    renameButton.textContent = "✎";
+    renameButton.title = "フォルダ名を変更";
 
-renameButton.addEventListener("click", () => {
-  const newTitle = prompt("新しいフォルダ名を入力してください", folder.title);
-  if (!newTitle) return;
+    renameButton.addEventListener("click", () => {
+      const newTitle = prompt("新しいフォルダ名を入力してください", folder.title);
+      if (!newTitle) return;
 
-  folder.title = newTitle;
-  saveData();
-  renderPageList();
-});
+      folder.title = newTitle;
+      saveData();
+      renderPageList();
+    });
 
-  const deleteButton = document.createElement("button");
-  deleteButton.className = "folder-action-button";
-deleteButton.textContent = "×";
-deleteButton.title = "フォルダを削除";
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "folder-action-button";
+    deleteButton.textContent = "×";
+    deleteButton.title = "フォルダを削除";
 
-  deleteButton.addEventListener("click", () => {
-    const folderPages = pages.filter((page) => page.folderId === folder.id);
+    deleteButton.addEventListener("click", () => {
+      const folderPages = pages.filter((page) => page.folderId === folder.id);
 
-    if (folderPages.length > 0) {
-    alert("このフォルダにはページが入っているため削除できません。先にページを別フォルダへ移動してください。");
-    return;
+      if (folderPages.length > 0) {
+        alert("このフォルダにはページが入っているため削除できません。先にページを別フォルダへ移動してください。");
+        return;
       }
 
-    const ok = confirm(`「${folder.title}」フォルダを削除しますか？`);
-    if (!ok) return;
+      const ok = confirm(`「${folder.title}」フォルダを削除しますか？`);
+      if (!ok) return;
 
-  folders = folders.filter((f) => f.id !== folder.id);
-  saveData();
-  renderPageList();
-});
+      folders = folders.filter((f) => f.id !== folder.id);
+      saveData();
+      renderPageList();
+    });
 
-folderHeader.appendChild(collapseButton);
-folderHeader.appendChild(groupTitle);
-folderHeader.appendChild(renameButton);
-folderHeader.appendChild(deleteButton);
+    folderHeader.appendChild(collapseButton);
+    folderHeader.appendChild(groupTitle);
+    folderHeader.appendChild(renameButton);
+    folderHeader.appendChild(deleteButton);
 
-group.appendChild(folderHeader);
+    group.appendChild(folderHeader);
 
-  if (folder.collapsed) {
-    pageList.appendChild(group);
-    return;
-  }
+    if (folder.collapsed) {
+      pageList.appendChild(group);
+      return;
+    }
+
     folderPages.forEach((page) => {
+      const row = document.createElement("div");
+      row.className = "page-button-row";
+
       const button = document.createElement("button");
       button.className = "page-button";
       button.textContent = page.title;
@@ -1364,11 +1387,144 @@ group.appendChild(folderHeader);
         showPage(page.id);
       });
 
-      group.appendChild(button);
+      row.appendChild(button);
+
+      if (dictionaryLayerMode === "overlay") {
+        const hideButton = document.createElement("button");
+        hideButton.className = "hide-page-button";
+        hideButton.textContent = "−";
+        hideButton.title = "この作品では非表示にする";
+
+        hideButton.addEventListener("click", (event) => {
+          event.stopPropagation();
+
+          const work = getCurrentWork();
+          if (!work) return;
+
+          if (!work.hiddenPageIds) {
+            work.hiddenPageIds = [];
+          }
+
+          if (!work.hiddenPageIds.includes(page.id)) {
+            work.hiddenPageIds.push(page.id);
+          }
+
+          saveData();
+          renderPageList();
+        });
+
+        row.appendChild(hideButton);
+      }
+
+      group.appendChild(row);
     });
 
     pageList.appendChild(group);
   });
+
+  if (dictionaryLayerMode === "overlay") {
+    renderHiddenPageList();
+  }
+}
+function renderHiddenPageList() {
+  const work = getCurrentWork();
+  if (!work) return;
+
+  if (!work.hiddenPageIds) {
+    work.hiddenPageIds = [];
+  }
+
+  const hiddenPages = pages.filter((page) => {
+    return work.hiddenPageIds.includes(page.id);
+  });
+
+  if (hiddenPages.length === 0) return;
+
+  const hiddenGroup = document.createElement("section");
+  hiddenGroup.className = "page-group hidden-page-group";
+
+  const header = document.createElement("div");
+header.className = "folder-header";
+
+const collapseButton = document.createElement("button");
+collapseButton.className = "folder-action-button";
+collapseButton.textContent = work.hiddenPagesCollapsed ? "▶" : "▼";
+
+collapseButton.addEventListener("click", () => {
+  work.hiddenPagesCollapsed = !work.hiddenPagesCollapsed;
+
+  saveData();
+  renderPageList();
+});
+
+const title = document.createElement("h3");
+title.className = "page-group-title";
+title.textContent = "非表示";
+
+header.appendChild(collapseButton);
+header.appendChild(title);
+
+hiddenGroup.appendChild(header);
+
+if (work.hiddenPagesCollapsed) {
+  pageList.appendChild(hiddenGroup);
+  return;
+}
+
+  const sortedFolders = [...folders].sort((a, b) => a.order - b.order);
+
+  sortedFolders.forEach((folder) => {
+    const folderHiddenPages = hiddenPages.filter((page) => {
+      return page.folderId === folder.id;
+    });
+
+    if (folderHiddenPages.length === 0) return;
+
+    const folderTitle = document.createElement("div");
+    folderTitle.className = "hidden-folder-title";
+    folderTitle.textContent = folder.title;
+
+    hiddenGroup.appendChild(folderTitle);
+
+    folderHiddenPages.forEach((page) => {
+      const row = document.createElement("div");
+      row.className = "page-button-row";
+
+      const button = document.createElement("button");
+      button.className = "page-button hidden-page-button";
+      button.textContent = page.title;
+
+      if (page.id === currentPageId) {
+        button.classList.add("active");
+      }
+
+      button.addEventListener("click", () => {
+        showPage(page.id);
+      });
+
+      const restoreButton = document.createElement("button");
+      restoreButton.className = "restore-page-button";
+      restoreButton.textContent = "👁";
+      restoreButton.title = "通常表示に戻す";
+
+      restoreButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+
+        work.hiddenPageIds =
+          work.hiddenPageIds.filter((id) => id !== page.id);
+
+        saveData();
+        renderPageList();
+      });
+
+      row.appendChild(button);
+      row.appendChild(restoreButton);
+
+      hiddenGroup.appendChild(row);
+    });
+  });
+
+  pageList.appendChild(hiddenGroup);
 }
 
 //左サイドバーの「小説本文」一覧だけを表示する
@@ -1405,15 +1561,20 @@ groupTitle.className = "novel-group-title";
 
 // 時系列タブにイベント一覧を表示する
 // イベントのタイトル・本文・関連フラグ・上下移動・削除ボタンもここで作る
-function renderTimeline() {
-  renderTimelineList();
+function renderTimeline(){
 
-  if (currentEventId) {
-    renderTimelineDetail(currentEventId);
-  } else {
-    timelineDetailPanel.innerHTML =
-      `<p class="empty-message">左のイベントを選択してください。</p>`;
-  }
+    if(timelineViewMode==="detail"){
+
+        renderTimelineList();
+
+        renderTimelineDetail(currentTimelineEventId);
+
+    }else{
+
+        renderTimelineOverview();
+
+    }
+
 }
 
 function renderTimelineList() {
@@ -1479,24 +1640,31 @@ function renderTimelineDetail(eventId) {
     event.flags = [];
   }
 
-  const pageCheckboxes = pages.map((page) => {
-    const checked =
-      event.relatedPageIds.includes(page.id)
-        ? "checked"
-        : "";
+  const selectedPages = event.relatedPageIds
+  .map((pageId) => pages.find((page) => page.id === pageId))
+  .filter((page) => page);
 
-    return `
-      <label class="event-page-label">
-        <input
-          type="checkbox"
-          class="event-page-checkbox"
-          value="${page.id}"
-          ${checked}
-        >
-        ${page.title}
-      </label>
-    `;
-  }).join("");
+const selectedPageChips =
+  selectedPages.length > 0
+    ? selectedPages.map((page) => {
+        return `
+    <div
+      class="related-chip open-related-page"
+      data-page-id="${page.id}"
+      >
+      🏷️ ${page.title}
+
+    <button
+      type="button"
+      class="remove-related-page"
+      data-page-id="${page.id}"
+      >
+        ×
+      </button>
+    </div>
+      `;
+      }).join("")
+    : "<p class='empty-message'>関連設定資料はまだありません。</p>";
 
   const flagCheckboxes = work.flags.map((flag) => {
     const checked =
@@ -1524,8 +1692,18 @@ function renderTimelineDetail(eventId) {
 
     <div class="event-pages">
       <div class="event-pages-title">📖 関連設定資料</div>
-      ${pageCheckboxes || "<p class='empty-message'>辞書ページがまだありません。</p>"}
+
+      <div class="related-chip-list">
+      ${selectedPageChips}
     </div>
+
+  <input
+    class="timeline-page-search"
+    placeholder="設定資料を検索して追加"
+  >
+
+  <div class="timeline-page-search-results"></div>
+</div>
 
     <div class="event-flags">
       <div class="event-flags-title">🚩 関連フラグ</div>
@@ -1557,8 +1735,6 @@ function setupTimelineDetailEvents(event) {
 
     initTimelineEditor(event);
 
-  const pageCheckboxInputs =
-    timelineDetailPanel.querySelectorAll(".event-page-checkbox");
 
   const flagCheckboxInputs =
     timelineDetailPanel.querySelectorAll(".event-flag-checkbox");
@@ -1570,26 +1746,94 @@ function setupTimelineDetailEvents(event) {
     renderTimelineList();
   });
 
-  pageCheckboxInputs.forEach((checkbox) => {
-    checkbox.addEventListener("change", () => {
-      const pageId = checkbox.value;
+  const pageSearchInput =
+  timelineDetailPanel.querySelector(".timeline-page-search");
 
-      if (!event.relatedPageIds) {
-        event.relatedPageIds = [];
+const pageSearchResults =
+  timelineDetailPanel.querySelector(".timeline-page-search-results");
+
+const removePageButtons =
+  timelineDetailPanel.querySelectorAll(".remove-related-page");
+
+const openPageChips =
+  timelineDetailPanel.querySelectorAll(".open-related-page");
+
+openPageChips.forEach((chip) => {
+  chip.addEventListener("click", () => {
+    const pageId = chip.dataset.pageId;
+
+    showPage(pageId);
+  });
+});
+
+removePageButtons.forEach((button) => {
+  button.addEventListener("click", (eventObject) => {
+    eventObject.stopPropagation();
+
+    const pageId = button.dataset.pageId;
+
+    event.relatedPageIds =
+      event.relatedPageIds.filter((id) => id !== pageId);
+
+    saveData();
+    renderTimelineDetail(event.id);
+  });
+});
+
+function renderTimelinePageSearchResults() {
+  if (!pageSearchInput || !pageSearchResults) return;
+
+  const keyword =
+    pageSearchInput.value.trim().toLowerCase();
+
+  pageSearchResults.innerHTML = "";
+
+  if (!keyword) return;
+
+  const matchedPages = pages
+    .filter((page) => {
+      if (event.relatedPageIds.includes(page.id)) {
+        return false;
       }
 
-      if (checkbox.checked) {
-        if (!event.relatedPageIds.includes(pageId)) {
-          event.relatedPageIds.push(pageId);
-        }
-      } else {
-        event.relatedPageIds =
-          event.relatedPageIds.filter((id) => id !== pageId);
+      return (
+        page.title.toLowerCase().includes(keyword) ||
+        page.body.toLowerCase().includes(keyword) ||
+        page.tags.join(" ").toLowerCase().includes(keyword)
+      );
+    })
+    .slice(0, 10);
+
+  if (matchedPages.length === 0) {
+    pageSearchResults.innerHTML =
+      "<p class='empty-message'>見つかりませんでした。</p>";
+    return;
+  }
+
+  matchedPages.forEach((page) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "search-result-button";
+    button.textContent = page.title;
+
+    button.addEventListener("click", () => {
+      if (!event.relatedPageIds.includes(page.id)) {
+        event.relatedPageIds.push(page.id);
       }
 
       saveData();
+      renderTimelineDetail(event.id);
     });
+
+    pageSearchResults.appendChild(button);
   });
+}
+
+if (pageSearchInput) {
+  pageSearchInput.addEventListener("input", () => {
+    renderTimelinePageSearchResults();
+  });
+}
 
   flagCheckboxInputs.forEach((checkbox) => {
     checkbox.addEventListener("change", () => {
@@ -2224,6 +2468,13 @@ function showModal(title, html, onOk) {
 
 }
 
+function renderTimelineOverview(){
+
+  //あとで作る
+
+}
+
+
 
 // ==============================
 // 6. 移動系関数
@@ -2575,6 +2826,9 @@ layerToggleButton.addEventListener("click", () => {
   if (page) {
     updateSideInfo(page);
   }
+
+  renderPageList();
+
 });
 
 // 設定資料データのJSONファイルを読み込む
@@ -2599,6 +2853,12 @@ importBaseFile.addEventListener("change", () => {
 
     saveData();
     renderPageList();
+    const page = getCurrentPage();
+      if (page) {
+      updateSideInfo(page);
+      }
+
+  renderPageList();
 
     sideInfo.innerHTML = "辞書ページを選択してください。";
 
@@ -2908,11 +3168,47 @@ toggleTimelineSideButton.addEventListener("click", () => {
   timelinePanel.classList.toggle("timeline-side-collapsed");
 
   if (timelinePanel.classList.contains("timeline-side-collapsed")) {
+
+    timelineLayout.classList.add("list-collapsed");
+
     toggleTimelineSideButton.textContent = "▶";
+
   } else {
+
+    timelineLayout.classList.remove("list-collapsed");
+
     toggleTimelineSideButton.textContent = "◀";
   }
 });
+
+const detailButton =
+document.getElementById("timeline-detail-view-button");
+
+const overviewButton =
+document.getElementById("timeline-overview-view-button");
+
+detailButton.addEventListener("click",()=>{
+
+    timelineViewMode="detail";
+
+    detailButton.classList.add("active");
+    overviewButton.classList.remove("active");
+
+    renderTimeline();
+
+});
+
+overviewButton.addEventListener("click",()=>{
+
+    timelineViewMode="overview";
+
+    overviewButton.classList.add("active");
+    detailButton.classList.remove("active");
+
+    renderTimeline();
+
+});
+
 
 
 // ==============================
