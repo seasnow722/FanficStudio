@@ -12,12 +12,12 @@
 
 <div class="top-actions">
     <span id="save-status" class="save-status">● 保存済み</span>
-  <button id="layer-toggle-button" class="top-button">原作のみ</button>
+  <button id="layer-toggle-button" class="top-button">設定資料のみ</button>
 
   <div class="dropdown">
     <button id="import-button" class="top-button">読み込み</button>
     <div id="import-menu" class="dropdown-menu hidden">
-      <button id="import-base-button">原作読み込み</button>
+      <button id="import-base-button">設定資料読み込み</button>
       <button id="import-work-button">作品読み込み</button>
     </div>
   </div>
@@ -25,7 +25,7 @@
   <div class="dropdown">
     <button id="export-button" class="top-button">書き出し</button>
     <div id="export-menu" class="dropdown-menu hidden">
-      <button id="export-base-button">原作書き出し</button>
+      <button id="export-base-button">設定資料書き出し</button>
       <button id="export-work-button">作品書き出し</button>
       <button id="export-current-novel-text-button">現在の本文をtxt書き出し</button>
       <button id="export-all-novels-text-button">全本文をまとめてtxt書き出し</button>
@@ -87,42 +87,190 @@
 <div id="left-resizer"></div>
 
 <section class="main-page">
-  <div class="pane-menu">
-  <button
-    id="delete-novel-button"
-    class="icon-delete-button"
-    title="この本文を削除"
->
-    🗑
-  </button>
-  </div>
 
   <div class="main-tabs">
     <button class="main-tab active" data-tab="novel">本文</button>
     <button class="main-tab" data-tab="timeline">時系列</button>
     <button class="main-tab" data-tab="relation">相関図</button>
     <button class="main-tab" data-tab="flags">フラグ</button>
+    <button class="main-tab" data-tab="progress">進捗</button>
+    <button class="main-tab" data-tab="profile">執筆プロフィール</button>
   </div>
 
   <div id="novel-panel" class="tab-panel">
-    <input id="page-title" class="page-title-input" value="">
-    <div id="page-type" class="page-type"></div>
+  <div class="novel-panel-actions">
+    <button
+      id="delete-novel-button"
+      class="icon-delete-button"
+      title="この本文を削除"
+    >
+      🗑
+    </button>
+  </div>
 
-    <div class="novel-toolbar">
-      <button id="undo-button">↶</button>
-      <button id="redo-button">↷</button>
-      <span id="novel-char-count">0文字</span>
+  <input id="page-title" class="page-title-input" value="">
+  <div id="page-type" class="page-type"></div>
+
+  <div class="novel-toolbar">
+    <button id="undo-button">↶</button>
+    <button id="redo-button">↷</button>
+    <span id="novel-char-count">0文字</span>
+  </div>
+
+  <textarea id="page-body"></textarea>
+  <div id="editor"></div>
+  </div>
+
+<div id="progress-panel" class="tab-panel hidden">
+  <h2>進捗</h2>
+
+  <section class="progress-block">
+    <h3>作品</h3>
+
+    <div class="writing-stats-panel">
+      <div>現在の本文：<span id="current-novel-char-count">0</span>文字</div>
+      <div>作品全体：<span id="total-work-char-count">0</span>文字</div>
     </div>
 
-    <textarea id="page-body"></textarea>
-    <div id="editor"></div>
+    <div class="progress-section">
+      <label class="goal-toggle-label">
+        <input id="use-goal-checkbox" type="checkbox">
+        目標文字数を使う
+      </label>
+
+      <div id="goal-settings" class="goal-settings hidden">
+        <label>
+          目標文字数
+          <input id="goal-char-input" type="number" min="0" step="1000">
+        </label>
+
+        <div class="goal-result">
+          達成率：<span id="goal-progress-percent">0</span>%
+        </div>
+
+        <div class="goal-result">
+          あと：<span id="goal-remaining-chars">0</span>文字
+        </div>
+
+        <div class="goal-bar">
+          <div id="goal-bar-fill"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="progress-section">
+      <h3>本文ごとの文字数</h3>
+      <div id="novel-char-list"></div>
+    </div>
+  </section>
+</div>
+
+<div id="profile-panel" class="tab-panel hidden">
+  <h2>執筆プロフィール</h2>
+
+  <section class="progress-block">
+    <h3>今日の記録</h3>
+
+    <div class="writing-stats-panel">
+      <div>起動回数：<span id="launch-count">0</span>回</div>
+      <div>今日の追加：<span id="today-added-chars">0</span>文字</div>
+      <div>今日の削除：<span id="today-deleted-chars">0</span>文字</div>
+      <div>今日の増減：<span id="today-net-chars">0</span>文字</div>
+    </div>
+
+    <div class="progress-section">
+      <h3>文字数グラフ</h3>
+
+    <div class="progress-section">
+      <h3>活動カレンダー</h3>
+      <div id="activity-grass" class="activity-grass"></div>
+    </div>
+
+    <div class="progress-section">
+      <h3>活動レシート</h3>
+    <div id="activity-receipt" class="activity-receipt">
+      草をクリックすると、その日の記録が表示されます。
+    </div>
+    <button
+      id="save-receipt-image-button"
+      class="side-button"
+    >
+      🖼 レシートを画像保存
+    </button>
   </div>
+
+      <div class="chart-toolbar">
+        <label>
+          表示期間
+          <select id="writing-chart-range">
+            <option value="7">過去7日</option>
+            <option value="30">過去30日</option>
+            <option value="365">過去365日</option>
+            <option value="all">全期間</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="writing-chart">
+        <canvas id="writing-chart"></canvas>
+      </div>
+    </div>
+
+    <div class="progress-section">
+      <h3>過去7日分の執筆ログ</h3>
+      <div id="writing-log-list"></div>
+    </div>
+  </section>
+</div>
+
 
   <div id="timeline-panel" class="tab-panel hidden">
   <h2>時系列</h2>
-  <button id="new-event-button" class="new-page-button">＋ イベント追加</button>
-  <div id="timeline-list"></div>
+
+<div class="timeline-toolbar">
+
+  <button
+    id="timeline-detail-view-button"
+    class="timeline-view-button active"
+  >
+    詳細表示
+  </button>
+
+  <button
+    id="timeline-overview-view-button"
+    class="timeline-view-button"
+  >
+    全体表示
+  </button>
+
+  <button
+    id="new-event-button"
+    class="new-page-button"
+  >
+    ＋ イベント追加
+  </button>
+
+</div>
+
+  <div id="timeline-detail-layout" class="timeline-layout">
+    <aside id="timeline-side-panel" class="timeline-side-panel">
+      <div id="timeline-list"></div>
+    </aside>
+
+    <button
+      id="toggle-timeline-side-button"
+      class="timeline-side-toggle"
+      title="時系列リストを開閉"
+    >
+      ◀
+    </button>
+
+    <section id="timeline-detail-panel" class="timeline-detail-panel">
+      <p class="empty-message">左のイベントを選択してください。</p>
+    </section>
   </div>
+    <div id="timeline-overview-panel" class="timeline-overview-panel hidden"></div>
+</div>
 
   <div id="relation-panel" class="tab-panel hidden">
     <h2>相関図</h2>
@@ -153,7 +301,23 @@
 </aside>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script type="module" src="/script.js"></script>
   
+  <div id="modal-overlay" class="hidden">
+  <div id="modal-window">
+
+    <h2 id="modal-title"></h2>
+
+    <div id="modal-body"></div>
+
+    <div class="modal-buttons">
+      <button id="modal-cancel">キャンセル</button>
+      <button id="modal-ok">OK</button>
+    </div>
+
+  </div>
+</div>
+
 </body>
 </html>
