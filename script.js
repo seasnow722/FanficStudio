@@ -250,6 +250,10 @@ let currentMainTab = "novel";
 
 let currentEventId = null;
 
+let focusFlagId = null;
+
+let currentReceiptDateKey = null;
+
 // 辞書ページの表示モード
 // "base" = 設定資料のみ
 // "overlay" = 設定資料 + 現在の作品注釈
@@ -386,8 +390,15 @@ const novelCharList =
 const writingChartRange =
   document.getElementById("writing-chart-range");
 
-const timelineLayout =
-  document.getElementById("timeline-layout");
+const timelineDetailLayout =
+  document.getElementById("timeline-detail-layout");
+
+const timelineOverviewPanel =
+  document.getElementById("timeline-overview-panel");
+
+const saveReceiptImageButton =
+  document.getElementById("save-receipt-image-button");
+
 
 
 // ==============================
@@ -785,6 +796,42 @@ function getGrassLevel(score) {
   if (score <= 6) return 3;
   return 4;
 }
+
+function buildReceiptImageFileName(dateKey) {
+  const compactDate =
+    dateKey.slice(2).replaceAll("-", "");
+
+  return `${compactDate}-FfS.png`;
+}
+
+function downloadReceiptImage() {
+  const receiptCard =
+    document.querySelector(".receipt-card");
+
+  if (!receiptCard) {
+    alert("保存するレシートがありません。");
+    return;
+  }
+
+  if (!currentReceiptDateKey) {
+    alert("先に草をクリックして、保存したい日のレシートを表示してください。");
+    return;
+  }
+
+  html2canvas(receiptCard, {
+    backgroundColor: null,
+    scale: 2
+  }).then((canvas) => {
+    const link = document.createElement("a");
+
+    link.download =
+      buildReceiptImageFileName(currentReceiptDateKey);
+
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  });
+}
+
 
 
 // ==============================
@@ -1561,20 +1608,19 @@ groupTitle.className = "novel-group-title";
 
 // 時系列タブにイベント一覧を表示する
 // イベントのタイトル・本文・関連フラグ・上下移動・削除ボタンもここで作る
-function renderTimeline(){
+function renderTimeline() {
+  if (timelineViewMode === "detail") {
+    timelineDetailLayout.classList.remove("hidden");
+    timelineOverviewPanel.classList.add("hidden");
 
-    if(timelineViewMode==="detail"){
+    renderTimelineList();
+    renderTimelineDetail(currentEventId);
+  } else {
+    timelineDetailLayout.classList.add("hidden");
+    timelineOverviewPanel.classList.remove("hidden");
 
-        renderTimelineList();
-
-        renderTimelineDetail(currentTimelineEventId);
-
-    }else{
-
-        renderTimelineOverview();
-
-    }
-
+    renderTimelineOverview();
+  }
 }
 
 function renderTimelineList() {
@@ -1893,53 +1939,145 @@ function renderFlags() {
 
   flagList.innerHTML = "";
 
-  work.flags.forEach((flag) => {
+  const sortedFlags = [...work.flags].sort((a, b) => {
+  return (a.order ?? 999) - (b.order ?? 999);
+  });
+
+  sortedFlags.forEach((flag, index) => {
+    if (flag.order === undefined) {
+    flag.order = index + 1;
+    }
+    if (flag.collapsed === undefined) {
+      flag.collapsed = true;
+    }
     const flagCard = document.createElement("div");
     flagCard.className = "flag-card";
+    flagCard.dataset.flagId = flag.id;
 
-    const relatedEvents = work.events.filter(
-      (event) => event.flags.includes(flag.id)
-    );
+    if (flag.id === focusFlagId) {
+      flagCard.classList.add("focused-flag");
+    }
+
+    const relatedEvents = work.events.filter((event) => {
+      if (!event.flags) {
+        event.flags = [];
+      }
+
+      return event.flags.includes(flag.id);
+    });
+
     const relatedEventsHtml =
       relatedEvents.length > 0
-      ? relatedEvents.map(event =>
-        `<li>${event.title}</li>`
-      ).join("")
-    : "<li>なし</li>";
+        ? relatedEvents.map((event) => {
+            return `
+              <button
+                class="related-chip flag-related-event-chip"
+                data-event-id="${event.id}"
+              >
+                🏷 ${event.title}
+              </button>
+            `;
+          }).join("")
+        : `<p class="empty-message">関連イベントなし</p>`;
+
+    const isChecked =
+      flag.status === "resolved" || flag.status === "done";
 
     flagCard.innerHTML = `
-      <input class="flag-title" value="${flag.title}">
+  <div class="flag-header">
+  <button
+    class="flag-collapse-toggle"
+    title="${flag.collapsed ? "開く" : "閉じる"}"
+  >
+    ${flag.collapsed ? "▶" : "▼"}
+  </button>
 
-      <select class="flag-status">
-        <option value="unresolved" ${flag.status === "unresolved" ? "selected" : ""}>未回収</option>
-        <option value="resolved" ${flag.status === "resolved" ? "selected" : ""}>回収済み</option>
-        <option value="pending" ${flag.status === "pending" ? "selected" : ""}>保留</option>
-      </select>
+  <input
+    class="flag-check"
+    type="checkbox"
+    ${isChecked ? "checked" : ""}
+  >
 
-      <textarea class="flag-memo">${flag.memo}</textarea>
+    <input
+      class="flag-title"
+      type="text"
+      value="${flag.title}"
+    >
 
-      <button class="side-button delete-flag">削除</button>
+  </div>
+
+<div class="flag-body ${flag.collapsed ? "hidden" : ""}">
+
+  <textarea
+    class="flag-memo"
+    placeholder="TODO・メモを書く"
+  >${flag.memo || ""}</textarea>
+
       <div class="flag-related-events">
-      <strong>関連イベント</strong>
-      <ul>
-      ${relatedEventsHtml}
-      </ul>
+        <strong>関連イベント</strong>
+
+        <div class="related-chip-list">
+          ${relatedEventsHtml}
+        </div>
+
+    <div class="flag-actions">
+
+  <button
+    class="flag-move-up"
+    title="上へ"
+  >
+    ↑
+  </button>
+
+  <button
+    class="flag-move-down"
+    title="下へ"
+  >
+    ↓
+  </button>
+
+  <button
+    class="flag-delete-icon delete-flag"
+    title="削除"
+  >
+    🗑
+  </button>
+
+</div>
+    
+      </div>
       </div>
     `;
 
+    const collapseToggle =
+      flagCard.querySelector(".flag-collapse-toggle");
+    const checkInput = flagCard.querySelector(".flag-check");
     const titleInput = flagCard.querySelector(".flag-title");
-    const statusSelect = flagCard.querySelector(".flag-status");
     const memoInput = flagCard.querySelector(".flag-memo");
     const deleteButton = flagCard.querySelector(".delete-flag");
+    const header =
+      flagCard.querySelector(".flag-header");
+    const eventChips =
+      flagCard.querySelectorAll(".flag-related-event-chip");
+    const body =
+      flagCard.querySelector(".flag-body");
+    const moveUpButton =
+      flagCard.querySelector(".flag-move-up");
+    const moveDownButton =
+      flagCard.querySelector(".flag-move-down");
+      
 
+    checkInput.addEventListener("change", () => {
+      flag.status = checkInput.checked
+        ? "resolved"
+        : "unresolved";
+
+      saveData();
+      renderFlags();
+    });
 
     titleInput.addEventListener("input", () => {
       flag.title = titleInput.value;
-      saveData();
-    });
-
-    statusSelect.addEventListener("change", () => {
-      flag.status = statusSelect.value;
       saveData();
     });
 
@@ -1948,21 +2086,69 @@ function renderFlags() {
       saveData();
     });
 
+    eventChips.forEach((chip) => {
+      chip.addEventListener("click", () => {
+        currentEventId = chip.dataset.eventId;
+        timelineViewMode = "detail";
+
+        switchMainTab("timeline");
+
+        detailButton.classList.add("active");
+        overviewButton.classList.remove("active");
+
+        renderTimeline();
+      });
+    });
+
     deleteButton.addEventListener("click", () => {
       const ok = confirm(`「${flag.title}」を削除しますか？`);
       if (!ok) return;
 
       work.flags = work.flags.filter((f) => f.id !== flag.id);
+
       work.events.forEach((event) => {
-      event.flags = event.flags.filter((id) => id !== flag.id);
+        if (!event.flags) {
+          event.flags = [];
+        }
+
+        event.flags = event.flags.filter((id) => id !== flag.id);
       });
-      
+
       saveData();
       renderFlags();
     });
 
+    collapseToggle.addEventListener("click", () => {
+      flag.collapsed = !flag.collapsed;
+
+      saveData();
+      renderFlags();
+    });
+
+    moveUpButton.addEventListener("click", () => {
+      moveFlag(flag, -1);
+    });
+
+    moveDownButton.addEventListener("click", () => {
+      moveFlag(flag, 1);
+    });
+
     flagList.appendChild(flagCard);
   });
+
+  if (focusFlagId) {
+    const focusedCard =
+      flagList.querySelector(`[data-flag-id="${focusFlagId}"]`);
+
+    if (focusedCard) {
+      focusedCard.scrollIntoView({
+        behavior: "smooth",
+        block: "center"
+      });
+    }
+
+    focusFlagId = null;
+  }
 }
 
 // 中央タブを切り替える
@@ -2318,6 +2504,8 @@ grassElement.appendChild(cell);
 }
 
 function renderActivityReceipt(dateKey) {
+  currentReceiptDateKey = dateKey;
+
   const receiptElement =
     document.getElementById("activity-receipt");
 
@@ -2468,11 +2656,185 @@ function showModal(title, html, onOk) {
 
 }
 
-function renderTimelineOverview(){
+function renderTimelineOverview() {
+  const work = getCurrentWork();
+  if (!work) return;
 
-  //あとで作る
+  if (!work.events || work.events.length === 0) {
+    timelineOverviewPanel.innerHTML =
+      `<p class="empty-message">時系列イベントがまだありません。</p>`;
+    return;
+  }
 
+  const sortedEvents = [...work.events].sort((a, b) => {
+    return a.order - b.order;
+  });
+
+  timelineOverviewPanel.innerHTML = "";
+
+  sortedEvents.forEach((event, index) => {
+    const card = document.createElement("article");
+    card.className = "timeline-overview-card";
+
+    const displayNumber = String(index + 1).padStart(3, "0");
+
+    const titleRow = document.createElement("div");
+titleRow.className = "timeline-overview-title-row";
+
+const titleButton = document.createElement("button");
+titleButton.className = "timeline-overview-title";
+titleButton.textContent = `${displayNumber}　${event.title}`;
+
+const editButton = document.createElement("button");
+editButton.className = "timeline-overview-edit-button";
+editButton.textContent = "🖊️";
+editButton.title = "詳細で編集";
+
+editButton.addEventListener("click", () => {
+  currentEventId = event.id;
+  timelineViewMode = "detail";
+
+  detailButton.classList.add("active");
+  overviewButton.classList.remove("active");
+
+  renderTimeline();
+});
+
+titleRow.appendChild(titleButton);
+titleRow.appendChild(editButton);
+
+    const body = document.createElement("div");
+    body.className = "timeline-overview-body";
+    body.textContent = event.body || "本文なし";
+
+    const info = document.createElement("div");
+    info.className = "timeline-overview-info";
+
+    const relatedPages = (event.relatedPageIds || [])
+      .map((pageId) => pages.find((page) => page.id === pageId))
+      .filter((page) => page);
+
+    const relatedFlags = (event.flags || [])
+      .map((flagId) => work.flags.find((flag) => flag.id === flagId))
+      .filter((flag) => flag);
+
+    const pageToggle = document.createElement("button");
+    pageToggle.className = "timeline-overview-info-button";
+    pageToggle.textContent = `📖 ${relatedPages.length}件 ▼`;
+
+    const flagToggle = document.createElement("button");
+    flagToggle.className = "timeline-overview-info-button";
+    flagToggle.textContent = `🚩 ${relatedFlags.length}件 ▼`;
+
+    const detailArea = document.createElement("div");
+    detailArea.className = "timeline-overview-related hidden";
+
+    pageToggle.addEventListener("click", () => {
+  const isPageOpen =
+    detailArea.dataset.openType === "pages" &&
+    !detailArea.classList.contains("hidden");
+
+  if (isPageOpen) {
+    detailArea.classList.add("hidden");
+    detailArea.dataset.openType = "";
+
+    pageToggle.textContent = `📖 ${relatedPages.length}件 ▼`;
+    return;
+  }
+
+  detailArea.classList.remove("hidden");
+  detailArea.dataset.openType = "pages";
+
+  pageToggle.textContent = `📖 ${relatedPages.length}件 ▲`;
+  flagToggle.textContent = `🚩 ${relatedFlags.length}件 ▼`;
+
+  detailArea.innerHTML =
+    relatedPages.length > 0
+      ? relatedPages.map((page) => {
+          return `
+            <button
+              class="timeline-overview-related-item timeline-overview-link"
+              data-page-id="${page.id}"
+            >
+              📖 ${page.title}
+            </button>
+          `;
+        }).join("")
+      : `<div class="timeline-overview-related-item">関連辞書なし</div>`;
+});
+
+    flagToggle.addEventListener("click", () => {
+  const isFlagOpen =
+    detailArea.dataset.openType === "flags" &&
+    !detailArea.classList.contains("hidden");
+
+  if (isFlagOpen) {
+    detailArea.classList.add("hidden");
+    detailArea.dataset.openType = "";
+
+    flagToggle.textContent = `🚩 ${relatedFlags.length}件 ▼`;
+    return;
+  }
+
+  detailArea.classList.remove("hidden");
+  detailArea.dataset.openType = "flags";
+
+  flagToggle.textContent = `🚩 ${relatedFlags.length}件 ▲`;
+  pageToggle.textContent = `📖 ${relatedPages.length}件 ▼`;
+
+  detailArea.innerHTML =
+    relatedFlags.length > 0
+      ? relatedFlags.map((flag) => {
+          return `
+            <button
+              class="timeline-overview-related-item timeline-overview-flag-link"
+              data-flag-id="${flag.id}"
+            >
+              🚩 ${flag.title}
+            </button>
+          `;
+        }).join("")
+      : `<div class="timeline-overview-related-item">関連フラグなし</div>`;
+});
+
+    detailArea.addEventListener("click", (eventObject) => {
+  const target = eventObject.target;
+
+  if (!(target instanceof HTMLElement)) return;
+
+  const pageButton =
+    target.closest(".timeline-overview-link");
+
+  if (pageButton) {
+    const pageId = pageButton.dataset.pageId;
+
+    showPage(pageId);
+    return;
+  }
+
+  const flagButton =
+    target.closest(".timeline-overview-flag-link");
+
+  if (flagButton) {
+    focusFlagId = flagButton.dataset.flagId;
+    switchMainTab("flags");
+    return;
+  }
+});
+
+    info.appendChild(pageToggle);
+    info.appendChild(flagToggle);
+
+    card.appendChild(titleRow);
+    card.appendChild(body);
+    
+    card.appendChild(info);
+    card.appendChild(detailArea);
+
+    timelineOverviewPanel.appendChild(card);
+  });
 }
+
 
 
 
@@ -2522,6 +2884,41 @@ function moveEvent(event, direction) {
 
   saveData();
   renderTimeline();
+}
+
+function moveFlag(flag, direction) {
+  const work = getCurrentWork();
+  if (!work) return;
+
+  if (!work.flags) {
+    work.flags = [];
+  }
+
+  const sortedFlags = [...work.flags].sort((a, b) => {
+    return (a.order ?? 999) - (b.order ?? 999);
+  });
+
+  sortedFlags.forEach((item, index) => {
+    if (item.order === undefined) {
+      item.order = index + 1;
+    }
+  });
+
+  const index = sortedFlags.findIndex((item) => item.id === flag.id);
+  const targetIndex = index + direction;
+
+  if (targetIndex < 0 || targetIndex >= sortedFlags.length) {
+    return;
+  }
+
+  const targetFlag = sortedFlags[targetIndex];
+
+  const tempOrder = flag.order;
+  flag.order = targetFlag.order;
+  targetFlag.order = tempOrder;
+
+  saveData();
+  renderFlags();
 }
 
 //幅ドラッグ関係の変数定義
@@ -3169,13 +3566,13 @@ toggleTimelineSideButton.addEventListener("click", () => {
 
   if (timelinePanel.classList.contains("timeline-side-collapsed")) {
 
-    timelineLayout.classList.add("list-collapsed");
+    timelineDetailLayout.classList.add("list-collapsed");
 
     toggleTimelineSideButton.textContent = "▶";
 
   } else {
 
-    timelineLayout.classList.remove("list-collapsed");
+    timelineDetailLayout.classList.remove("list-collapsed");
 
     toggleTimelineSideButton.textContent = "◀";
   }
@@ -3208,6 +3605,11 @@ overviewButton.addEventListener("click",()=>{
     renderTimeline();
 
 });
+
+saveReceiptImageButton.addEventListener("click", () => {
+  downloadReceiptImage();
+});
+
 
 
 

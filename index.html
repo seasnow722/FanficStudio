@@ -87,15 +87,6 @@
 <div id="left-resizer"></div>
 
 <section class="main-page">
-  <div class="pane-menu">
-  <button
-    id="delete-novel-button"
-    class="icon-delete-button"
-    title="この本文を削除"
->
-    🗑
-  </button>
-  </div>
 
   <div class="main-tabs">
     <button class="main-tab active" data-tab="novel">本文</button>
@@ -107,6 +98,16 @@
   </div>
 
   <div id="novel-panel" class="tab-panel">
+  <div class="novel-panel-actions">
+    <button
+      id="delete-novel-button"
+      class="icon-delete-button"
+      title="この本文を削除"
+    >
+      🗑
+    </button>
+  </div>
+
   <input id="page-title" class="page-title-input" value="">
   <div id="page-type" class="page-type"></div>
 
@@ -190,6 +191,12 @@
     <div id="activity-receipt" class="activity-receipt">
       草をクリックすると、その日の記録が表示されます。
     </div>
+    <button
+      id="save-receipt-image-button"
+      class="side-button"
+    >
+      🖼 レシートを画像保存
+    </button>
   </div>
 
       <div class="chart-toolbar">
@@ -245,7 +252,7 @@
 
 </div>
 
-  <div class="timeline-layout">
+  <div id="timeline-detail-layout" class="timeline-layout">
     <aside id="timeline-side-panel" class="timeline-side-panel">
       <div id="timeline-list"></div>
     </aside>
@@ -262,6 +269,7 @@
       <p class="empty-message">左のイベントを選択してください。</p>
     </section>
   </div>
+    <div id="timeline-overview-panel" class="timeline-overview-panel hidden"></div>
 </div>
 
   <div id="relation-panel" class="tab-panel hidden">
@@ -293,6 +301,7 @@
 </aside>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script type="module" src="/script.js"></script>
   
   <div id="modal-overlay" class="hidden">
