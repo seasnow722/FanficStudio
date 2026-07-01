@@ -19,6 +19,12 @@ import { EditorView } from "codemirror";
 import { undo, redo, history, historyKeymap } from "@codemirror/commands";
 import { Decoration, WidgetType, keymap } from "@codemirror/view";
 import Chart from "chart.js/auto";
+import {
+  saveAppData,
+  loadAppData,
+  saveAppUserData,
+  loadAppUserData
+} from "./storage.js";
 
 // 小説本文用CodeMirror本体を入れる箱を先に作る
 let novelEditor = null;
@@ -408,16 +414,13 @@ const saveReceiptImageButton =
 function saveData() {
   updateSaveStatus("🟡 保存中...", "saving");
 
-  localStorage.setItem(
-    "fanficStudioData",
-    JSON.stringify({
-      folders,
-      basePages,
-      works,
-      leftPaneWidth,
-      rightPaneWidth
-    })
-  );
+  saveAppData({
+    folders,
+    basePages,
+    works,
+    leftPaneWidth,
+    rightPaneWidth
+  });
 
   if (saveStatusTimer) {
     clearTimeout(saveStatusTimer);
@@ -430,13 +433,11 @@ function saveData() {
 
 //localStorageにあるデータを読み込む
 function loadData() {
-  const savedData = localStorage.getItem("fanficStudioData");
+  const parsedData = loadAppData();
 
-  if (!savedData) {
+  if (!parsedData) {
     return defaultData;
   }
-
-  const parsedData = JSON.parse(savedData);
 
   if (!parsedData.basePages || !parsedData.works) {
     return defaultData;
@@ -618,14 +619,11 @@ function updateSaveStatus(text, className = "") {
 }
 
 function loadUserData() {
-  const savedUserData =
-    localStorage.getItem("fanficStudioUserData");
+  const parsedUserData = loadAppUserData();
 
-  if (!savedUserData) {
+  if (!parsedUserData) {
     return structuredClone(defaultUserData);
   }
-
-  const parsedUserData = JSON.parse(savedUserData);
 
   return {
     ...structuredClone(defaultUserData),
@@ -646,10 +644,7 @@ function loadUserData() {
 }
 
 function saveUserData() {
-  localStorage.setItem(
-    "fanficStudioUserData",
-    JSON.stringify(userData)
-  );
+  saveAppUserData(userData);
 }
 
 //日付取得
