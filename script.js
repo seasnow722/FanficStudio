@@ -20,8 +20,17 @@ import { undo, redo, history, historyKeymap } from "@codemirror/commands";
 import { Decoration, WidgetType, keymap } from "@codemirror/view";
 import Chart from "chart.js/auto";
 import {
-  saveAppData,
+  saveReferenceData,
+  loadReferenceData,
+
+  saveWorkData,
+  loadWorkData,
+
+  saveAppSettings,
+  loadAppSettings,
+
   loadAppData,
+
   saveAppUserData,
   loadAppUserData
 } from "./storage.js";
@@ -284,6 +293,8 @@ let activeLineMenu = null;
 //ユーザーデータ用
 const userData = loadUserData();
 
+let activityDisplayMonth = new Date();
+
 
 
 // ==============================
@@ -405,6 +416,18 @@ const timelineOverviewPanel =
 const saveReceiptImageButton =
   document.getElementById("save-receipt-image-button");
 
+const activityMonthLabel =
+  document.getElementById("activity-month-label");
+
+const activityPrevMonthButton =
+  document.getElementById("activity-prev-month-button");
+
+const activityNextMonthButton =
+  document.getElementById("activity-next-month-button");
+
+const activityReceipt =
+  document.getElementById("activity-receipt");
+
 
 
 // ==============================
@@ -414,10 +437,16 @@ const saveReceiptImageButton =
 function saveData() {
   updateSaveStatus("🟡 保存中...", "saving");
 
-  saveAppData({
-    folders,
-    basePages,
-    works,
+  saveReferenceData({
+  folders,
+  basePages
+  });
+
+  saveWorkData(
+    works
+  );
+
+  saveAppSettings({
     leftPaneWidth,
     rightPaneWidth
   });
@@ -433,15 +462,38 @@ function saveData() {
 
 //localStorageにあるデータを読み込む
 function loadData() {
-  const parsedData = loadAppData();
+  const referenceData = loadReferenceData();
+  const workData = loadWorkData();
+  const appSettings = loadAppSettings();
 
-  if (!parsedData) {
-    return defaultData;
-  }
+  const oldAppData = loadAppData();
 
-  if (!parsedData.basePages || !parsedData.works) {
-    return defaultData;
-  }
+  const parsedData = {
+    folders:
+      referenceData?.folders ??
+      oldAppData?.folders ??
+      defaultData.folders,
+
+    basePages:
+      referenceData?.basePages ??
+      oldAppData?.basePages ??
+      defaultData.basePages,
+
+    works:
+      workData ??
+      oldAppData?.works ??
+      defaultData.works,
+
+    leftPaneWidth:
+      appSettings?.leftPaneWidth ??
+      oldAppData?.leftPaneWidth ??
+      defaultData.leftPaneWidth,
+
+    rightPaneWidth:
+      appSettings?.rightPaneWidth ??
+      oldAppData?.rightPaneWidth ??
+      defaultData.rightPaneWidth
+  };
 
   if (!parsedData.folders) {
     parsedData.folders = defaultData.folders;
@@ -731,6 +783,44 @@ function getRecentDateKeys(days) {
   }
 
   return dateKeys;
+}
+
+function getMonthDateKeys(baseDate) {
+  const year = baseDate.getFullYear();
+  const month = baseDate.getMonth();
+
+  const firstDate = new Date(year, month, 1);
+  const lastDate = new Date(year, month + 1, 0);
+
+  const dateKeys = [];
+
+  for (
+    let date = new Date(firstDate);
+    date <= lastDate;
+    date.setDate(date.getDate() + 1)
+  ) {
+    dateKeys.push(getDateKeyFromDate(date));
+  }
+
+  return dateKeys;
+}
+
+function isFutureMonth(baseDate) {
+  const today = new Date();
+
+  const targetYear = baseDate.getFullYear();
+  const targetMonth = baseDate.getMonth();
+
+  const todayYear = today.getFullYear();
+  const todayMonth = today.getMonth();
+
+  return (
+    targetYear > todayYear ||
+    (
+      targetYear === todayYear &&
+      targetMonth > todayMonth
+    )
+  );
 }
 
 //草
@@ -2474,9 +2564,54 @@ function renderActivityGrass() {
 
   if (!grassElement) return;
 
-  const dateKeys = getRecentDateKeys(35);
+  const year = activityDisplayMonth.getFullYear();
+  const month = activityDisplayMonth.getMonth();
+
+  if (activityMonthLabel) {
+    activityMonthLabel.textContent =
+      `${year}年${month + 1}月`;
+  }
+
+  if (activityNextMonthButton) {
+  const nextMonth = new Date(
+    year,
+    month + 1,
+    1
+  );
+
+  activityNextMonthButton.disabled =
+    isFutureMonth(nextMonth);
+  }
+
+  const dateKeys = getMonthDateKeys(activityDisplayMonth);
 
   grassElement.innerHTML = "";
+
+  const weekdayHeader = document.createElement("div");
+  weekdayHeader.className = "activity-weekday-header";
+
+  ["日", "月", "火", "水", "木", "金", "土"].forEach((day) => {
+    const dayElement = document.createElement("div");
+    dayElement.className = "activity-weekday";
+    dayElement.textContent = day;
+
+    weekdayHeader.appendChild(dayElement);
+  });
+
+  grassElement.appendChild(weekdayHeader);
+
+  const grid = document.createElement("div");
+  grid.className = "activity-grass-grid";
+
+  const firstDate = new Date(year, month, 1);
+  const firstDay = firstDate.getDay();
+
+  for (let i = 0; i < firstDay; i++) {
+    const emptyCell = document.createElement("div");
+    emptyCell.className = "grass-cell grass-cell-empty";
+
+    grid.appendChild(emptyCell);
+  }
 
   dateKeys.forEach((dateKey) => {
     const log = userData.writingLogs.find((log) => {
@@ -2489,13 +2624,25 @@ function renderActivityGrass() {
     const cell = document.createElement("button");
     cell.className = `grass-cell level-${level}`;
     cell.title = `${dateKey} / ${score}点`;
+    cell.textContent = String(Number(dateKey.slice(-2)));
+
+    if (dateKey === getTodayKey()) {
+      cell.classList.add("grass-cell-today");
+    }
+
+    if (dateKey === currentReceiptDateKey) {
+      cell.classList.add("grass-cell-selected");
+    }
 
     cell.addEventListener("click", () => {
-    renderActivityReceipt(dateKey);
+      renderActivityReceipt(dateKey);
+      renderActivityGrass();
+    });
+
+    grid.appendChild(cell);
   });
 
-grassElement.appendChild(cell);
-  });
+  grassElement.appendChild(grid);
 }
 
 function renderActivityReceipt(dateKey) {
@@ -3603,6 +3750,36 @@ overviewButton.addEventListener("click",()=>{
 
 saveReceiptImageButton.addEventListener("click", () => {
   downloadReceiptImage();
+});
+
+activityPrevMonthButton.addEventListener("click", () => {
+  activityDisplayMonth = new Date(
+    activityDisplayMonth.getFullYear(),
+    activityDisplayMonth.getMonth() - 1,
+    1
+  );
+
+  currentReceiptDateKey = null;
+
+  activityReceipt.innerHTML =
+    "草をクリックすると、その日の記録が表示されます。";
+
+  renderActivityGrass();
+});
+
+activityNextMonthButton.addEventListener("click", () => {
+  activityDisplayMonth = new Date(
+    activityDisplayMonth.getFullYear(),
+    activityDisplayMonth.getMonth() + 1,
+    1
+  );
+
+  currentReceiptDateKey = null;
+
+  activityReceipt.innerHTML =
+    "草をクリックすると、その日の記録が表示されます。";
+
+  renderActivityGrass();
 });
 
 

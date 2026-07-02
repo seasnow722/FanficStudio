@@ -1,13 +1,25 @@
-export function saveAppData(dataToSave) {
+// 保存方式をまとめるファイル
+// 将来はDesktop版・Cloud版へ切り替える
+
+const STORAGE_KEYS = {
+  appData: "fanficStudioData",
+  userData: "fanficStudioUserData",
+
+  referenceData: "fanficStudioReferenceData",
+  workData: "fanficStudioWorkData",
+  appSettings: "fanficStudioAppSettings"
+};
+
+function browserStorageSave(key, data) {
   localStorage.setItem(
-    "fanficStudioData",
-    JSON.stringify(dataToSave)
+    key,
+    JSON.stringify(data)
   );
 }
 
-export function loadAppData() {
+function browserStorageLoad(key) {
   const savedData =
-    localStorage.getItem("fanficStudioData");
+    localStorage.getItem(key);
 
   if (!savedData) {
     return null;
@@ -16,20 +28,67 @@ export function loadAppData() {
   return JSON.parse(savedData);
 }
 
+export function saveAppData(dataToSave) {
+  browserStorageSave(
+    STORAGE_KEYS.appData,
+    dataToSave
+  );
+}
+
+export function saveReferenceData(referenceData) {
+  browserStorageSave(
+    STORAGE_KEYS.referenceData,
+    referenceData
+  );
+}
+
+export function loadReferenceData() {
+  return browserStorageLoad(
+    STORAGE_KEYS.referenceData
+  );
+}
+
+export function saveWorkData(workData) {
+  browserStorageSave(
+    STORAGE_KEYS.workData,
+    workData
+  );
+}
+
+export function loadWorkData() {
+  return browserStorageLoad(
+    STORAGE_KEYS.workData
+  );
+}
+
+export function saveAppSettings(settings) {
+  browserStorageSave(
+    STORAGE_KEYS.appSettings,
+    settings
+  );
+}
+
+export function loadAppSettings() {
+  return browserStorageLoad(
+    STORAGE_KEYS.appSettings
+  );
+}
+
+export function loadAppData() {
+  return browserStorageLoad(
+    STORAGE_KEYS.appData
+  );
+}
+
 export function saveAppUserData(userDataToSave) {
-  localStorage.setItem(
-    "fanficStudioUserData",
-    JSON.stringify(userDataToSave)
+  browserStorageSave(
+    STORAGE_KEYS.userData,
+    userDataToSave
   );
 }
 
 export function loadAppUserData() {
-  const savedUserData =
-    localStorage.getItem("fanficStudioUserData");
-
-  if (!savedUserData) {
-    return null;
-  }
-
-  return JSON.parse(savedUserData);
+  return browserStorageLoad(
+    STORAGE_KEYS.userData
+  );
 }

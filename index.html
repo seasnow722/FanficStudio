@@ -178,43 +178,67 @@
       <div>今日の増減：<span id="today-net-chars">0</span>文字</div>
     </div>
 
-    <div class="progress-section">
-      <h3>文字数グラフ</h3>
+<div class="progress-section">
+  <h3>文字数グラフ</h3>
 
-    <div class="progress-section">
-      <h3>活動カレンダー</h3>
-      <div id="activity-grass" class="activity-grass"></div>
-    </div>
+  <div class="chart-toolbar">
+    <label>
+      表示期間
+      <select id="writing-chart-range">
+        <option value="7">過去7日</option>
+        <option value="30">過去30日</option>
+        <option value="365">過去365日</option>
+        <option value="all">全期間</option>
+      </select>
+    </label>
+  </div>
 
-    <div class="progress-section">
-      <h3>活動レシート</h3>
-    <div id="activity-receipt" class="activity-receipt">
-      草をクリックすると、その日の記録が表示されます。
-    </div>
+  <div class="writing-chart">
+    <canvas id="writing-chart"></canvas>
+  </div>
+</div>
+
+<div class="progress-section">
+  <div class="activity-grass-header">
     <button
-      id="save-receipt-image-button"
+      id="activity-prev-month-button"
       class="side-button"
     >
-      🖼 レシートを画像保存
+      ◀
+    </button>
+
+    <h3 id="activity-month-label">
+      活動カレンダー
+    </h3>
+
+    <button
+      id="activity-next-month-button"
+      class="side-button"
+    >
+      ▶
     </button>
   </div>
 
-      <div class="chart-toolbar">
-        <label>
-          表示期間
-          <select id="writing-chart-range">
-            <option value="7">過去7日</option>
-            <option value="30">過去30日</option>
-            <option value="365">過去365日</option>
-            <option value="all">全期間</option>
-          </select>
-        </label>
-      </div>
+  <div
+    id="activity-grass"
+    class="activity-grass"
+  ></div>
+</div>
 
-      <div class="writing-chart">
-        <canvas id="writing-chart"></canvas>
-      </div>
-    </div>
+<div class="progress-section">
+  <h3>活動レシート</h3>
+
+  <div id="activity-receipt" class="activity-receipt">
+    草をクリックすると、その日の記録が表示されます。
+  </div>
+
+  <button
+    id="save-receipt-image-button"
+    class="side-button"
+  >
+    🖼 レシートを画像保存
+  </button>
+</div>
 
     <div class="progress-section">
       <h3>過去7日分の執筆ログ</h3>
