@@ -1344,10 +1344,7 @@ body {
 }
 
 .activity-grass {
-  display: grid;
-  grid-template-columns: repeat(7, 14px);
-  grid-auto-rows: 14px;
-  gap: 4px;
+  display: block;
 }
 
 .grass-cell {
@@ -2019,4 +2016,68 @@ body {
 
 .flag-collapse-toggle:hover {
   color: #4b3728;
+}
+
+.activity-grass-header{
+    display:flex;
+    align-items:center;
+    justify-content:flex-start;
+    gap:8px;
+    margin-bottom:12px;
+}
+
+.activity-grass-header h3{
+    margin:0;
+    min-width:140px;
+    text-align:left;
+}
+
+.activity-grass-header .side-button{
+    flex:0 0 32px;
+
+    width:32px;
+    min-width:32px;
+    max-width:32px;
+
+    height:32px;
+
+    padding:0;
+}
+
+.activity-weekday-header,
+.activity-grass-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 26px);
+  gap: 4px;
+}
+
+.activity-weekday-header {
+  margin-bottom: 4px;
+}
+
+.activity-weekday {
+  width: 26px;
+  text-align: center;
+  font-size: 11px;
+  color: #777;
+}
+
+.activity-grass-grid .grass-cell {
+  width: 26px;
+  height: 26px;
+  font-size: 11px;
+}
+
+.grass-cell-empty {
+  border: none;
+  background: transparent;
+  cursor: default;
+}
+
+.grass-cell-today {
+  outline: 2px solid #6f4535;
+}
+
+.grass-cell-selected {
+  box-shadow: 0 0 0 3px rgba(196, 154, 108, 0.35);
 }
