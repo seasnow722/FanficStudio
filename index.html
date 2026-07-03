@@ -6,7 +6,76 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+<div id="startup-screen" class="startup-screen">
+  <div class="startup-card startup-card-wide">
+
+    <h1>Fanfic Studio</h1>
+
+    <div class="startup-layout">
+
+      <section class="startup-left">
+        <h2>作品一覧</h2>
+
+        <button class="startup-sub-button">
+          設定資料を選ぶ（準備中）
+        </button>
+
+        <!-- 起動画面から新しい作品を作るための入口。
+        作品を増やせるようにすると、作品一覧のスクロール確認もしやすくなる。 -->
+        <button
+        id="new-work-button"
+        class="startup-sub-button"
+        >
+          ＋ 新しい作品を作る
+      </button>
+
+        <!-- JSで works の作品ボタンをここに並べる。 -->
+        <div
+          id="startup-work-list"
+          class="startup-work-list"
+        ></div>
+      </section> <!-- startup-left を閉じる -->
+
+      <section class="startup-right">
+        <div
+          id="startup-last-work-card"
+          class="startup-last-work-card"
+        >
+          <h2>選択中の作品</h2>
+
+          <div id="startup-last-work-title">
+            作品なし
+          </div>
+
+          <div class="startup-work-meta">
+          <div>
+            総文字数：
+          <span id="startup-work-total-chars">0</span>文字
+        </div>
+
+        <div>
+          最終更新：
+        <span id="startup-work-updated-at">未記録</span>
+        </div>
+        </div>
+
+          <button
+            id="continue-work-button"
+            class="startup-main-button"
+          >
+            この作品を書き始める
+          </button>
+        </div>
+      </section> <!-- startup-right を閉じる -->
+
+    </div> <!-- startup-layout を閉じる -->
+
+  </div> <!-- startup-card を閉じる -->
+</div> <!-- startup-screen を閉じる -->
   
+<div id="app-shell" class="app-shell hidden">
+
 <header class="top-bar">
   <h1>Fanfic Studio</h1>
 
@@ -42,7 +111,6 @@
 <div class="right-toggle-container">
   <button id="toggle-right-pane-button">▶</button>
 </div>
- 
 
 
   <main class="app-layout">
@@ -324,6 +392,7 @@
   <div id="side-info">左の項目をクリックしてください。</div>
 </aside>
   </main>
+</div>
 
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script type="module" src="/script.js"></script>
