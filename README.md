@@ -3,7 +3,7 @@
 
 
 URLはこちら
-https://seasnow722.github.io/FanficStudio/
+`https://seasnow722.github.io/FanficStudio/`
 
 現状データはブラウザ内保存です。定期的なJSON書き出しを推奨します。
 
@@ -44,7 +44,7 @@ Fanfic Studioでは、
 ## 起動方法
 
 ### Windows 1
-1. 'https://seasnow722.github.io/FanficStudio/'をブラウザで開く
+1. `https://seasnow722.github.io/FanficStudio/`をブラウザで開く
 
 ### Windows 2
 1. Node.jsをインストールする

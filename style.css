@@ -2081,3 +2081,164 @@ body {
 .grass-cell-selected {
   box-shadow: 0 0 0 3px rgba(196, 154, 108, 0.35);
 }
+
+
+/* ==============================
+   起動画面
+============================== */
+.startup-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f4f1ec;
+}
+
+.startup-card {
+  width: 420px;
+  max-width: 90%;
+  padding: 32px;
+  background: #fffaf3;
+  border: 1px solid #ddd0bd;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(75, 55, 40, 0.12);
+  text-align: center;
+}
+
+.startup-card h1 {
+  color: #4b3728;
+  margin-bottom: 12px;
+}
+
+.startup-card p {
+  color: #777;
+  margin-bottom: 24px;
+}
+
+.startup-main-button {
+  padding: 12px 20px;
+  border: none;
+  background: #c49a6c;
+  color: white;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.startup-main-button:hover {
+  background: #a87f52;
+}
+
+.startup-last-work-card{
+    margin:24px 0;
+    padding:16px;
+
+    border:1px solid #ddd;
+
+    border-radius:10px;
+
+    background:#fff;
+}
+
+#startup-last-work-title{
+    margin:12px 0 20px;
+
+    font-size:18px;
+    font-weight:bold;
+}
+
+.startup-sub-button{
+
+    padding:10px 18px;
+
+    border:1px solid #bbb;
+
+    background:white;
+
+    border-radius:8px;
+
+    cursor:pointer;
+}
+
+.startup-layout {
+  display: flex;
+}
+
+.startup-card-wide {
+  width: 760px;
+}
+
+.startup-layout {
+  display: flex;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.startup-left,
+.startup-right {
+  flex: 1;
+}
+
+.startup-work-list {
+  max-height: 320px;
+  overflow-y: auto;
+  margin-top: 12px;
+}
+
+.startup-work-button {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 12px;
+  border: none;
+  background: #eee2d0;
+  color: #333;
+  text-align: left;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.startup-work-button:hover {
+  background: #d8c3a5;
+}
+
+.startup-work-button.active {
+  background: #c49a6c;
+  color: white;
+}
+
+.startup-work-button:hover {
+  background: #d8c3a5;
+}
+
+.startup-work-button.active {
+  background: #c49a6c;
+  color: white;
+}
+
+.startup-work-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.startup-work-row .startup-work-button {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.startup-work-delete-button {
+  width: 34px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.startup-work-row:hover .startup-work-delete-button {
+  opacity: 1;
+}
+
+.startup-work-delete-button:hover {
+  background: #ead7b7;
+}

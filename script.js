@@ -243,19 +243,37 @@ let folders = data.folders;
 let basePages = data.basePages;
 let works = data.works;
 
-//現在の作品、辞書、本文かを判断する
-let currentWorkId = works.length > 0 ? works[0].id : null;
+// 起動時に、最初に作業する作品IDを決める。
+// 前回開いていた作品IDが保存されていて、今も存在するならそれを使う。
+// そうでなければ、作品一覧の先頭を使う。
+// 作品が1つもなければ null にする。
+let currentWorkId =
+  data.lastWorkId && works.some((work) => work.id === data.lastWorkId)
+    ? data.lastWorkId
+    : works.length > 0
+      ? works[0].id
+      : null;
+
+// 今どの辞書ページを開いているかを覚える。
+// 起動直後はまだ何も開いていないので null。
 let currentPageId = null;
+
+//今どの小説本文を開いているか（何話とか）を覚える
+// 起動直後はまだ何も開いていないので null。
 let currentNovelId = null;
 
 // 現在扱う辞書ページ一覧。
 // 今は設定資料辞書 basePages をそのまま使っている。
 let pages = basePages;
+
 // 現在の作品に属する小説本文一覧。
 // currentWorkId が決まったあとで getCurrentWork().novels を入れる。
+// これを更新しないと、前の作品の本文一覧が残ってしまう。
 let novels = [];
 
 if (currentWorkId) {
+  // currentWorkId に対応する作品の本文一覧を取り出す。
+  // これをしないと「今の作品」と「表示する本文一覧」がつながらない。
   novels = getCurrentWork().novels;
   }
 
@@ -268,6 +286,10 @@ let currentEventId = null;
 let focusFlagId = null;
 
 let currentReceiptDateKey = null;
+
+// 小説本文一覧が開いているかどうか。
+// trueなら表示、falseなら折りたたむ。
+let isNovelListOpen = true;
 
 // 辞書ページの表示モード
 // "base" = 設定資料のみ
@@ -294,6 +316,12 @@ let activeLineMenu = null;
 const userData = loadUserData();
 
 let activityDisplayMonth = new Date();
+
+// 起動画面で選択中の作品ID。
+// まだ本体で作業する作品ではなく、右側に詳細表示するための一時的な選択。
+let selectedStartupWorkId = currentWorkId;
+
+
 
 
 
@@ -428,6 +456,41 @@ const activityNextMonthButton =
 const activityReceipt =
   document.getElementById("activity-receipt");
 
+const startupScreen =
+  document.getElementById("startup-screen");
+
+const appShell =
+  document.getElementById("app-shell");
+
+const openAppButton =
+  document.getElementById("open-app-button");
+
+const startupLastWorkTitle =
+  document.getElementById(
+    "startup-last-work-title"
+  );
+
+const continueWorkButton =
+  document.getElementById(
+    "continue-work-button"
+  );
+
+// 起動画面に表示する作品一覧の置き場。
+// HTML側の #startup-work-list に、JSで作品ボタンを並べる。
+const startupWorkList =
+  document.getElementById(
+    "startup-work-list"
+  );
+
+const newWorkButton =
+  document.getElementById("new-work-button");
+
+const startupWorkTotalChars =
+  document.getElementById("startup-work-total-chars");
+
+const startupWorkUpdatedAt =
+  document.getElementById("startup-work-updated-at");
+
 
 
 // ==============================
@@ -448,7 +511,8 @@ function saveData() {
 
   saveAppSettings({
     leftPaneWidth,
-    rightPaneWidth
+    rightPaneWidth,
+    lastWorkId: currentWorkId
   });
 
   if (saveStatusTimer) {
@@ -469,31 +533,35 @@ function loadData() {
   const oldAppData = loadAppData();
 
   const parsedData = {
-    folders:
-      referenceData?.folders ??
-      oldAppData?.folders ??
-      defaultData.folders,
+  folders:
+    referenceData?.folders ??
+    oldAppData?.folders ??
+    defaultData.folders,
 
-    basePages:
-      referenceData?.basePages ??
-      oldAppData?.basePages ??
-      defaultData.basePages,
+  basePages:
+    referenceData?.basePages ??
+    oldAppData?.basePages ??
+    defaultData.basePages,
 
-    works:
-      workData ??
-      oldAppData?.works ??
-      defaultData.works,
+  works:
+    workData ??
+    oldAppData?.works ??
+    defaultData.works,
 
-    leftPaneWidth:
-      appSettings?.leftPaneWidth ??
-      oldAppData?.leftPaneWidth ??
-      defaultData.leftPaneWidth,
+  leftPaneWidth:
+    appSettings?.leftPaneWidth ??
+    oldAppData?.leftPaneWidth ??
+    defaultData.leftPaneWidth,
 
-    rightPaneWidth:
-      appSettings?.rightPaneWidth ??
-      oldAppData?.rightPaneWidth ??
-      defaultData.rightPaneWidth
-  };
+  rightPaneWidth:
+    appSettings?.rightPaneWidth ??
+    oldAppData?.rightPaneWidth ??
+    defaultData.rightPaneWidth,
+
+  lastWorkId:
+    appSettings?.lastWorkId ??
+    null
+};
 
   if (!parsedData.folders) {
     parsedData.folders = defaultData.folders;
@@ -1665,12 +1733,27 @@ function renderNovelList() {
   group.className = "page-group";
 
   const groupTitle = document.createElement("h3");
-groupTitle.className = "novel-group-title";
-  groupTitle.textContent = "▼ 小説本文";
+  groupTitle.className = "novel-group-title";
+  groupTitle.textContent = isNovelListOpen
+    ? "▼ 小説本文"
+    : "▶ 小説本文";
 
-  group.appendChild(groupTitle);
+  groupTitle.addEventListener("click", () => {
+    // 小説本文一覧の開閉状態を反転する。
+    // trueならfalseへ、falseならtrueへ切り替わる。
+    isNovelListOpen = !isNovelListOpen;
 
-  novels.forEach((novel) => {
+    renderPageList();
+  });
+
+group.appendChild(groupTitle);
+
+if (!isNovelListOpen) {
+  pageList.appendChild(group);
+  return;
+}
+
+novels.forEach((novel) => {
     const button = document.createElement("button");
     button.className = "page-button";
     button.textContent = novel.title;
@@ -2977,7 +3060,121 @@ titleRow.appendChild(editButton);
   });
 }
 
+function renderStartupScreen() {
+  const lastWork =
+    works.find((work) => work.id === currentWorkId);
 
+  if (!startupLastWorkTitle || !continueWorkButton) return;
+
+  if (!lastWork) {
+    startupLastWorkTitle.textContent = "作品なし";
+    continueWorkButton.disabled = true;
+    return;
+  }
+
+  startupLastWorkTitle.textContent = lastWork.title;
+  continueWorkButton.disabled = false;
+}
+
+// 起動画面右側に、選択中の作品情報を表示する。
+function renderStartupSelectedWork() {
+  const selectedWork =
+    works.find((work) => work.id === selectedStartupWorkId);
+
+  if (!startupLastWorkTitle || !continueWorkButton) return;
+
+  if (!selectedWork) {
+    startupLastWorkTitle.textContent = "作品なし";
+    continueWorkButton.disabled = true;
+    return;
+  }
+
+  startupLastWorkTitle.textContent = selectedWork.title;
+  continueWorkButton.disabled = false;
+
+  // 選択中作品に入っている本文の文字数を合計する。
+  // 起動画面で「この作品がどれくらい書かれているか」を見るため。
+  const totalChars = selectedWork.novels.reduce((sum, novel) => {
+  return sum + novel.body.length;
+}, 0);
+
+  startupWorkTotalChars.textContent =
+    totalChars.toLocaleString();
+
+  startupWorkUpdatedAt.textContent =
+    selectedWork.updatedAt || "未記録";
+} // function renderStartupSelectedWork を閉じる
+
+
+// 起動画面に作品一覧を表示する。
+function renderStartupWorkList() {
+  if (!startupWorkList) return;
+
+  startupWorkList.innerHTML = "";
+
+  // 最終更新日時が新しい作品ほど上に表示する。
+  const sortedWorks = [...works].sort((a, b) => {
+    return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
+  });
+
+    // 作品ボタンと削除ボタンを横並びにするための1行を作る。
+  sortedWorks.forEach((work) => {
+    //作品1件分の横一列の箱を作る
+    const row = document.createElement("div");
+    row.className = "startup-work-row";
+
+    //作品名を表示するボタンを作る
+    const button = document.createElement("button");
+    button.className = "startup-work-button";
+    button.textContent = work.title;
+
+    if (work.id === selectedStartupWorkId) {
+      button.classList.add("active");
+    }
+
+    button.addEventListener("click", () => {
+      selectedStartupWorkId = work.id;
+
+      renderStartupWorkList();
+      renderStartupSelectedWork();
+    });
+
+    //削除用のゴミ箱ボタンを作る
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "startup-work-delete-button";
+    deleteButton.textContent = "🗑";
+    deleteButton.title = "この作品を削除";
+
+    deleteButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+
+      const ok = confirm(`「${work.title}」を削除しますか？`);
+      if (!ok) return;
+
+      works = works.filter((item) => item.id !== work.id);
+
+      if (selectedStartupWorkId === work.id) {
+        selectedStartupWorkId = works.length > 0 ? works[0].id : null;
+      }
+
+      if (currentWorkId === work.id) {
+        currentWorkId = works.length > 0 ? works[0].id : null;
+        novels = currentWorkId ? getCurrentWork().novels : [];
+      }
+
+      saveData();
+      renderStartupWorkList();
+      renderStartupSelectedWork();
+    });
+
+    // 作ったボタンを1行の中へ入れる。
+    // 最後にrowごと一覧へ追加する。
+    row.appendChild(button);
+    row.appendChild(deleteButton);
+
+    startupWorkList.appendChild(row);
+  });
+} // function renderStartupWorkList を閉じる
 
 
 // ==============================
@@ -3782,6 +3979,84 @@ activityNextMonthButton.addEventListener("click", () => {
   renderActivityGrass();
 });
 
+// 以前の「作品を選ぶ」ボタン用の処理。
+// 起動画面を左右レイアウトに変更して、このボタンは使わなくなったため停止中。
+// openAppButton.addEventListener("click", () => {
+//   startupScreen.classList.add("hidden");
+//   appShell.classList.remove("hidden");
+//
+//   updatePaneGrid();
+//   updateWritingStats();
+// });
+
+// 起動画面で選択している作品を、本体画面で開く。
+// 作品を開くために必要な処理を、1か所にまとめておく。
+function openSelectedWork() {
+  if (!selectedStartupWorkId) return;
+
+  // 起動画面で選んでいた作品を、実際の作業対象にする。
+  currentWorkId = selectedStartupWorkId;
+
+  // 作業対象の作品に合わせて、本文一覧も切り替える。
+  novels = getCurrentWork().novels;
+
+  saveData();
+
+  startupScreen.classList.add("hidden");
+  appShell.classList.remove("hidden");
+
+  updatePaneGrid();
+  renderPageList();
+
+  if (novels.length > 0) {
+    showNovel(novels[0].id);
+  }
+
+  updateWritingStats();
+} // function openSelectedWork を閉じる
+
+
+continueWorkButton.addEventListener("click", () => {
+  openSelectedWork();
+});
+
+newWorkButton.addEventListener("click", () => {
+  const title = prompt("新しい作品名を入力してください");
+
+  if (!title) return;
+
+  const nowText = new Date().toLocaleString();
+
+  const newWork = {
+    id: createPageId(),
+    title,
+    // 新しく作った作品には、空の小説本文を1本入れておく。
+    // 本体を開いたときに「何も選ばれていない空画面」にならないようにするため。
+    novels: [
+      {
+      id: createPageId(),
+      title: "新規小説本文",
+      body: ""
+      }
+    ],
+    events: [],
+    flags: [],
+    pages: [],
+    annotations: [],
+    // 作品を作成した日時を、最終更新日時として保存する。
+    // まだ本文を書いていない作品でも、起動画面に作成時刻を表示できるようにする。
+    updatedAt: nowText
+  };
+
+  works.push(newWork);
+
+  selectedStartupWorkId = newWork.id;
+
+  saveData();
+  renderStartupWorkList();
+  renderStartupSelectedWork();
+});
+
 
 
 
@@ -4410,5 +4685,10 @@ userData.stats.launchCount += 1;
 recordTodayLaunch();
 saveUserData();
 setupProgressEvents();
+
+renderStartupScreen();
+// 起動画面に、保存されている作品一覧を表示する。
+renderStartupWorkList();
+renderStartupSelectedWork();
 
 console.log("Fanfic Studio 起動！");

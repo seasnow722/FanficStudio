@@ -1,4 +1,4 @@
-// 保存方式をまとめるファイル
+// storage.js 保存方式をまとめるファイル
 // 将来はDesktop版・Cloud版へ切り替える
 
 const STORAGE_KEYS = {
