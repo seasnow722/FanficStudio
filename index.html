@@ -10,7 +10,24 @@
 <div id="startup-screen" class="startup-screen">
   <div class="startup-card startup-card-wide">
 
-    <h1>Fanfic Studio</h1>
+    <div class="startup-title-row">
+      <h1>Fanfic Studio</h1>
+
+      <div class="dropdown startup-menu-wrapper">
+        <button
+          id="startup-menu-button"
+          class="startup-menu-button"
+          aria-label="メニュー"
+        >☰</button>
+
+        <div id="startup-menu" class="dropdown-menu startup-menu hidden">
+          <button id="export-full-backup-button">全データバックアップ</button>
+          <button id="import-full-backup-button">バックアップから復元</button>
+        </div>
+      </div>
+    </div>
+
+    <input id="import-full-backup-file" type="file" accept=".json" hidden>
 
     <div class="startup-layout">
 

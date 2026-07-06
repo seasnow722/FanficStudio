@@ -491,6 +491,21 @@ const startupWorkTotalChars =
 const startupWorkUpdatedAt =
   document.getElementById("startup-work-updated-at");
 
+const startupMenuButton =
+  document.getElementById("startup-menu-button");
+
+const startupMenu =
+  document.getElementById("startup-menu");
+
+const exportFullBackupButton =
+  document.getElementById("export-full-backup-button");
+
+const importFullBackupButton =
+  document.getElementById("import-full-backup-button");
+
+const importFullBackupFile =
+  document.getElementById("import-full-backup-file");
+
 
 
 // ==============================
@@ -691,6 +706,95 @@ function downloadJson(filename, data) {
   link.click();
 
   URL.revokeObjectURL(url);
+}
+
+// Fanfic Studio全体をバックアップ用の1つのデータにまとめる。
+// この戻り値を downloadJson() に渡してJSON保存する。
+function buildFullBackupData() {
+  return {
+    version: 1,
+
+    exportedAt: new Date().toISOString(),
+
+    userData,
+
+    referenceData: {
+      folders,
+      basePages
+    },
+
+    workData: works,
+
+    appSettings: {
+      leftPaneWidth,
+      rightPaneWidth,
+      lastWorkId: currentWorkId
+    }
+  };
+}
+
+function restoreFullBackupData(backupData) {
+  const restoredReferenceData =
+    backupData?.referenceData || {};
+
+  const restoredAppSettings =
+    backupData?.appSettings || {};
+
+  if (Array.isArray(backupData?.workData)) {
+    works = backupData.workData;
+  }
+
+  if (Array.isArray(restoredReferenceData.folders)) {
+    folders = restoredReferenceData.folders;
+  }
+
+  if (Array.isArray(restoredReferenceData.basePages)) {
+    basePages = restoredReferenceData.basePages;
+  }
+
+  if (backupData?.userData && typeof backupData.userData === "object") {
+    Object.keys(userData).forEach((key) => {
+      delete userData[key];
+    });
+
+    Object.assign(userData, backupData.userData);
+  }
+
+  if (restoredAppSettings.leftPaneWidth !== undefined) {
+    leftPaneWidth = restoredAppSettings.leftPaneWidth;
+  }
+
+  if (restoredAppSettings.rightPaneWidth !== undefined) {
+    rightPaneWidth = restoredAppSettings.rightPaneWidth;
+  }
+
+  const restoredLastWorkId =
+    restoredAppSettings.lastWorkId;
+
+  currentWorkId =
+    restoredLastWorkId &&
+    works.some((work) => work.id === restoredLastWorkId)
+      ? restoredLastWorkId
+      : works.length > 0
+        ? works[0].id
+        : null;
+
+  selectedStartupWorkId = currentWorkId;
+  novels = currentWorkId ? getCurrentWork().novels : [];
+  pages = basePages;
+
+  saveData();
+  saveUserData();
+  updatePaneGrid();
+  renderStartupWorkList();
+  renderStartupSelectedWork();
+  renderPageList();
+
+  if (novels.length > 0) {
+    showNovel(novels[0].id);
+  }
+  
+  alert("バックアップから復元しました。");
 }
 
 //小説本文テキスト保存
@@ -3666,6 +3770,56 @@ importButton.addEventListener("click", () => {
 exportButton.addEventListener("click", () => {
   exportMenu.classList.toggle("hidden");
   importMenu.classList.add("hidden");
+});
+
+startupMenuButton.addEventListener("click", () => {
+  startupMenu.classList.toggle("hidden");
+});
+
+exportFullBackupButton.addEventListener("click", () => {
+  startupMenu.classList.add("hidden");
+
+  downloadJson(
+    "fanfic-studio-backup.json",
+    buildFullBackupData()
+  );
+});
+
+importFullBackupButton.addEventListener("click", () => {
+  startupMenu.classList.add("hidden");
+
+  const ok = confirm(
+    "バックアップから復元すると、現在のデータが上書きされます。続行しますか？"
+  );
+
+  if (!ok) return;
+
+  importFullBackupFile.value = "";
+  importFullBackupFile.click();
+});
+
+importFullBackupFile.addEventListener("change", () => {
+  const file = importFullBackupFile.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.addEventListener("load", () => {
+    let backupData;
+
+    try {
+      backupData = JSON.parse(reader.result);
+    } catch (error) {
+      alert("バックアップファイルを読み込めませんでした。");
+      importFullBackupFile.value = "";
+      return;
+    }
+
+    restoreFullBackupData(backupData);
+    importFullBackupFile.value = "";
+  });
+
+  reader.readAsText(file);
 });
 
 // 設定資料読み込み

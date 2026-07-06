@@ -2110,6 +2110,39 @@ body {
   margin-bottom: 12px;
 }
 
+.startup-title-row {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.startup-title-row h1 {
+  margin: 0;
+}
+
+.startup-menu-wrapper {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.startup-menu-button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #ddd0bd;
+  background: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.startup-menu-button:hover {
+  background: #ead7b7;
+}
+
+.startup-menu {
+  min-width: 180px;
+}
+
 .startup-card p {
   color: #777;
   margin-bottom: 24px;
