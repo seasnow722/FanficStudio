@@ -24,14 +24,19 @@ contextBridge.exposeInMainWorld(
     // ipcRenderer.send Electron本体へ送る
     // "savetext" 保存をお願いする
     // text この文字を保存して
-    ipcRenderer.send("save-text", text);
+        ipcRenderer.send("save-text", text);
     },
 
     // main.jsへJSON保存依頼を送る。
     // dataはpreload側では保存せず、main.jsへ渡すだけ。
     saveJson(filename, data) {
-    ipcRenderer.send("save-json", filename, data);
+        ipcRenderer.send("save-json", filename, data);
+    },
+
+    //invoke 読み込んだデータを返して欲しい
+    loadJson(filename) {
+        return ipcRenderer.invoke("load-json", filename);
     }
-    
+
   }
 );

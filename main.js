@@ -44,6 +44,22 @@ ipcMain.on("save-json", (event, filename, data) => {
   console.log("JSON保存しました:", filePath);
 });
 
+ipcMain.handle("load-json", (event, filename) => {
+  const filePath = path.join(
+    app.getPath("userData"),
+    filename
+  );
+
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+
+  const jsonText =
+    fs.readFileSync(filePath, "utf-8");
+
+  return JSON.parse(jsonText);
+});
+
 app.whenReady().then(() => {
   createWindow();
 });
