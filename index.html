@@ -94,7 +94,28 @@
 <div id="app-shell" class="app-shell hidden">
 
 <header class="top-bar">
+  <div class="top-title-area">
+  <div class="dropdown">
+    <button
+      id="app-menu-button"
+      class="top-menu-button"
+      aria-label="アプリメニュー"
+    >
+      ☰
+    </button>
+
+    <div id="app-menu" class="dropdown-menu hidden">
+      <button id="back-to-startup-button">
+        作品一覧へ戻る
+      </button>
+      <button disabled>
+        ユーザー設定（準備中）
+      </button>
+    </div>
+  </div>
+
   <h1>Fanfic Studio</h1>
+</div>
 
 <div class="top-actions">
     <span id="save-status" class="save-status">● 保存済み</span>

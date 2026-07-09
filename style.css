@@ -207,6 +207,37 @@ textarea {
   color: white;
 }
 
+.top-title-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.top-menu-button {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: #c49a6c;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.top-menu-button:hover {
+  background: #a87f52;
+}
+
+.dropdown-menu button:disabled {
+  color: #aaa;
+  cursor: not-allowed;
+}
+
+.top-title-area .dropdown-menu {
+  left: 0;
+  right: auto;
+}
+
 .top-actions {
   display: flex;
   gap: 8px;
