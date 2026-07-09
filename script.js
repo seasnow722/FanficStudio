@@ -5030,10 +5030,6 @@ console.log(
     window.fanfic.hello()
 );
 
-window.fanfic.saveJson(
-  "test.json",
-  {
-    title: "Fanfic Studio",
-    memo: "JSON保存テスト"
-  }
-);
+window.fanfic.loadJson("workData.json").then((data) => {
+  console.log("AppDataから読んだworkData:", data);
+});
