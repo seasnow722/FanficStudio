@@ -1,24 +1,41 @@
 {
   "name": "fanficstudio",
-  "version": "1.0.0",
-  "description": "",
+  "version": "0.7.0",
+  "description": "Personal writing and reference manager",
   "main": "main.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "electron ."
+    "start": "electron .",
+    "dist": "npm run build && electron-builder --win portable"
   },
   "keywords": [],
-  "author": "",
+  "author": "izumi",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
     "electron": "^43.0.0",
+    "electron-builder": "^26.0.12",
     "vite": "^8.1.0"
   },
   "dependencies": {
     "chart.js": "^4.5.1",
     "codemirror": "^6.0.2"
+  },
+  "build": {
+    "appId": "com.izumi.fanficstudio",
+    "productName": "Fanfic Studio",
+    "files": [
+      "dist/**/*",
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ]
+    }
   }
 }
