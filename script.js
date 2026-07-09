@@ -3024,6 +3024,48 @@ function showModal(title, html, onOk) {
 
 }
 
+function showInputModal(title, labelText, defaultValue, onOk) {
+  modalTitle.textContent = title;
+
+  modalBody.innerHTML = `
+    <label class="modal-input-label">
+      ${labelText}
+    </label>
+
+    <input
+      id="modal-input"
+      class="modal-input"
+      type="text"
+      value="${defaultValue || ""}"
+    >
+  `;
+
+  modalOverlay.classList.remove("hidden");
+
+  const input =
+    document.getElementById("modal-input");
+
+  input.focus();
+  input.select();
+
+  modalOk.onclick = () => {
+    const value = input.value.trim();
+
+    if (!value) {
+      alert("名前を入力してください。");
+      return;
+    }
+
+    modalOverlay.classList.add("hidden");
+
+    onOk(value);
+  };
+
+  modalCancel.onclick = () => {
+    modalOverlay.classList.add("hidden");
+  };
+}
+
 function renderTimelineOverview() {
   const work = getCurrentWork();
   if (!work) return;
@@ -4278,16 +4320,16 @@ continueWorkButton.addEventListener("click", () => {
 });
 
 newWorkButton.addEventListener("click", () => {
-  const title = prompt("新しい作品名を入力してください");
+  showInputModal(
+    "新しい作品を作る",
+    "作品名",
+    "",
+    (title) => {
+      const nowText = new Date().toLocaleString();
 
-  if (!title) return;
-
-  const nowText = new Date().toLocaleString();
-
-  const newWork = {
-    id: createPageId(),
-    title,
-    // 新しく作った作品には、空の小説本文を1本入れておく。
+      const newWork = {
+        id: createPageId(),
+        title,    // 新しく作った作品には、空の小説本文を1本入れておく。
     // 本体を開いたときに「何も選ばれていない空画面」にならないようにするため。
     novels: [
       {
@@ -4313,7 +4355,7 @@ newWorkButton.addEventListener("click", () => {
   renderStartupWorkList();
   renderStartupSelectedWork();
 });
-
+});
 
 
 
