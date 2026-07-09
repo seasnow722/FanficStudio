@@ -500,6 +500,24 @@ const appMenu =
 const backToStartupButton =
   document.getElementById("back-to-startup-button");
 
+const appImportBaseButton =
+  document.getElementById("app-import-base-button");
+
+const appImportWorkButton =
+  document.getElementById("app-import-work-button");
+
+const appExportBaseButton =
+  document.getElementById("app-export-base-button");
+
+const appExportWorkButton =
+  document.getElementById("app-export-work-button");
+
+const appExportCurrentNovelTextButton =
+  document.getElementById("app-export-current-novel-text-button");
+
+const appExportAllNovelsTextButton =
+  document.getElementById("app-export-all-novels-text-button");
+
 const startupMenuButton =
   document.getElementById("startup-menu-button");
 
@@ -3808,6 +3826,36 @@ backToStartupButton.addEventListener("click", () => {
 
   renderStartupWorkList();
   renderStartupSelectedWork();
+});
+
+appImportBaseButton.addEventListener("click", () => {
+  appMenu.classList.add("hidden");
+  importBaseButton.click();
+});
+
+appImportWorkButton.addEventListener("click", () => {
+  appMenu.classList.add("hidden");
+  importWorkButton.click();
+});
+
+appExportBaseButton.addEventListener("click", () => {
+  appMenu.classList.add("hidden");
+  exportBaseButton.click();
+});
+
+appExportWorkButton.addEventListener("click", () => {
+  appMenu.classList.add("hidden");
+  exportWorkButton.click();
+});
+
+appExportCurrentNovelTextButton.addEventListener("click", () => {
+  appMenu.classList.add("hidden");
+  exportCurrentNovelTextButton.click();
+});
+
+appExportAllNovelsTextButton.addEventListener("click", () => {
+  appMenu.classList.add("hidden");
+  exportAllNovelsTextButton.click();
 });
 
 importFullBackupButton.addEventListener("click", () => {
