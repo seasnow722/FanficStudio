@@ -465,6 +465,9 @@ const appShell =
 const openAppButton =
   document.getElementById("open-app-button");
 
+const renameWorkButton =
+  document.getElementById("rename-work-button");
+
 const startupLastWorkTitle =
   document.getElementById(
     "startup-last-work-title"
@@ -3275,11 +3278,13 @@ function renderStartupSelectedWork() {
   if (!selectedWork) {
     startupLastWorkTitle.textContent = "作品なし";
     continueWorkButton.disabled = true;
+    renameWorkButton.disabled = true;
     return;
   }
 
   startupLastWorkTitle.textContent = selectedWork.title;
   continueWorkButton.disabled = false;
+  renameWorkButton.disabled = false;
 
   // 選択中作品に入っている本文の文字数を合計する。
   // 起動画面で「この作品がどれくらい書かれているか」を見るため。
@@ -4362,6 +4367,27 @@ newWorkButton.addEventListener("click", () => {
   renderStartupWorkList();
   renderStartupSelectedWork();
 });
+});
+
+renameWorkButton.addEventListener("click", () => {
+  const selectedWork =
+    works.find((work) => work.id === selectedStartupWorkId);
+
+  if (!selectedWork) return;
+
+  showInputModal(
+    "作品名を変更",
+    "新しい作品名",
+    selectedWork.title,
+    (newTitle) => {
+      selectedWork.title = newTitle;
+      selectedWork.updatedAt = new Date().toLocaleString();
+
+      saveData();
+      renderStartupWorkList();
+      renderStartupSelectedWork();
+    }
+  );
 });
 
 
