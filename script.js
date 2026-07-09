@@ -937,11 +937,10 @@ function getTodayWritingLog() {
     launch: false,
     addedChars: 0,
     deletedChars: 0,
-    dictionaryEdits: 0,
-    timelineEdits: 0,
-    flagEdits: 0,
-    relationEdits: 0,
-    pomodoro: 0
+    dictionaryEdits: false,
+    timelineEdits: false,
+    flagEdits: false,
+    relationEdits: false,
   };
 
     userData.writingLogs.push(log);
@@ -972,6 +971,42 @@ function recordWritingChange(beforeLength, afterLength) {
   } else {
     log.deletedChars += Math.abs(diff);
   }
+
+  saveUserData();
+}
+
+// 今日、辞書を編集したことを記録する
+function recordDictionaryEdit() {
+  const log = getTodayWritingLog();
+
+  log.dictionaryEdits = true;
+
+  saveUserData();
+}
+
+// 今日、時系列を編集したことを記録する
+function recordTimelineEdit() {
+  const log = getTodayWritingLog();
+
+  log.timelineEdits = true;
+
+  saveUserData();
+}
+
+// 今日、フラグを編集したことを記録する
+function recordFlagEdit() {
+  const log = getTodayWritingLog();
+
+  log.flagEdits = true;
+
+  saveUserData();
+}
+
+// 今日、相関図を編集したことを記録する
+function recordRelationEdit() {
+  const log = getTodayWritingLog();
+
+  log.relationEdits = true;
 
   saveUserData();
 }
@@ -1078,13 +1113,11 @@ function calculateGrassScore(log) {
   if (log.addedChars >= 500) score += 1;
   if (log.addedChars >= 1000) score += 1;
 
-  score += Math.min(log.dictionaryEdits || 0, 1);
-  score += Math.min(log.timelineEdits || 0, 1);
-  score += Math.min(log.flagEdits || 0, 1);
-  score += Math.min(log.relationEdits || 0, 1);
-  score += Math.min(log.pomodoro || 0, 1);
-
-  return score;
+  if (log.dictionaryEdits) score += 1;
+  if (log.timelineEdits) score += 1;
+  if (log.flagEdits) score += 1;
+  if (log.relationEdits) score += 1;
+    return score;
 }
 
 function getGrassLevel(score) {
@@ -1575,24 +1608,30 @@ function setupSideEditor(page) {
   const moveUpButton = document.getElementById("move-page-up");
   const moveDownButton = document.getElementById("move-page-down");
 
+  //辞書のタイトル編集
   sideTitle.addEventListener("input", () => {
     page.title = sideTitle.value;
+    recordDictionaryEdit();
     saveData();
     renderPageList();
   });
 
+  //辞書のフォルダ編集
   sideFolder.addEventListener("change", () => {
     page.folderId = sideFolder.value;
+    recordDictionaryEdit();
     saveData();
     renderPageList();
   });
 
+  //辞書のタグ編集
   sideTags.addEventListener("input", () => {
     page.tags = sideTags.value
       .split(",")
       .map((tag) => tag.trim())
       .filter((tag) => tag !== "");
 
+    recordDictionaryEdit();
     saveData();
   });
 
@@ -2389,17 +2428,25 @@ function renderFlags() {
         ? "resolved"
         : "unresolved";
 
+      recordFlagEdit();
+
       saveData();
       renderFlags();
     });
 
     titleInput.addEventListener("input", () => {
       flag.title = titleInput.value;
+
+      recordFlagEdit();
+
       saveData();
     });
 
     memoInput.addEventListener("input", () => {
       flag.memo = memoInput.value;
+
+      recordFlagEdit();
+
       saveData();
     });
 
@@ -2877,26 +2924,18 @@ function renderActivityGrass() {
   grassElement.appendChild(grid);
 }
 
-function renderActivityReceipt(dateKey) {
-  currentReceiptDateKey = dateKey;
-
-  const receiptElement =
-    document.getElementById("activity-receipt");
-
-  if (!receiptElement) return;
-
+function buildActivityReceiptHtml(dateKey) {
   const log = userData.writingLogs.find((log) => {
     return log.date === dateKey;
   });
 
   if (!log) {
-    receiptElement.innerHTML = `
+    return `
       <div class="receipt-card">
         <h3>${dateKey}</h3>
         <p>この日の記録はありません。</p>
       </div>
     `;
-    return;
   }
 
   const netChars =
@@ -2921,29 +2960,25 @@ function renderActivityReceipt(dateKey) {
     items.push(["本文増減", `${sign}${netChars.toLocaleString()}文字`]);
   }
 
-  if (log.dictionaryEdits > 0) {
-    items.push(["辞書編集", `${log.dictionaryEdits}回`]);
+  if (log.dictionaryEdits) {
+    items.push(["辞書編集", "○"]);
   }
 
-  if (log.timelineEdits > 0) {
-    items.push(["時系列編集", `${log.timelineEdits}回`]);
+  if (log.timelineEdits) {
+    items.push(["時系列編集", "○"]);
   }
 
-  if (log.flagEdits > 0) {
-    items.push(["フラグ編集", `${log.flagEdits}回`]);
+  if (log.flagEdits) {
+    items.push(["フラグ編集", "○"]);
   }
 
-  if (log.relationEdits > 0) {
-    items.push(["相関図編集", `${log.relationEdits}回`]);
-  }
-
-  if (log.pomodoro > 0) {
-    items.push(["ポモドーロ", `${log.pomodoro}回`]);
+  if (log.relationEdits) {
+    items.push(["相関図編集", "○"]);
   }
 
   const score = calculateGrassScore(log);
 
-  receiptElement.innerHTML = `
+  return `
     <div class="receipt-card">
       <div class="receipt-header">
         <h3>Fanfic Studio 活動レシート</h3>
@@ -2968,6 +3003,18 @@ function renderActivityReceipt(dateKey) {
       </div>
     </div>
   `;
+}
+
+function renderActivityReceipt(dateKey) {
+  currentReceiptDateKey = dateKey;
+
+  const receiptElement =
+    document.getElementById("activity-receipt");
+
+  if (!receiptElement) return;
+
+  receiptElement.innerHTML =
+    buildActivityReceiptHtml(dateKey);
 }
 
 function renderStartupActivityGrass() {
@@ -3014,58 +3061,8 @@ function renderStartupActivityReceipt(dateKey) {
 
   if (!receiptElement) return;
 
-  const log =
-    userData.writingLogs.find((log) => {
-      return log.date === dateKey;
-    });
-
-  if (!log) {
-    receiptElement.innerHTML = `
-      <div class="receipt-card">
-        <h3>${dateKey}</h3>
-        <p>この日の記録はありません。</p>
-      </div>
-    `;
-    return;
-  }
-
-  const netChars =
-    (log.addedChars || 0) - (log.deletedChars || 0);
-
-  receiptElement.innerHTML = `
-    <div class="receipt-card">
-      <div class="receipt-header">
-        <h3>Fanfic Studio 活動レシート</h3>
-        <span>${dateKey}</span>
-      </div>
-
-      <div class="receipt-items">
-        <div class="receipt-row">
-          <span>起動</span>
-          <strong>${log.launch ? "○" : "—"}</strong>
-        </div>
-
-        <div class="receipt-row">
-          <span>本文追加</span>
-          <strong>+${(log.addedChars || 0).toLocaleString()}文字</strong>
-        </div>
-
-        <div class="receipt-row">
-          <span>本文削除</span>
-          <strong>-${(log.deletedChars || 0).toLocaleString()}文字</strong>
-        </div>
-
-        <div class="receipt-row">
-          <span>本文増減</span>
-          <strong>${netChars.toLocaleString()}文字</strong>
-        </div>
-      </div>
-
-      <div class="receipt-footer">
-        活動スコア：${calculateGrassScore(log)}点
-      </div>
-    </div>
-  `;
+  receiptElement.innerHTML =
+    buildActivityReceiptHtml(dateKey);
 }
 
 function renderNovelCharList() {
@@ -4497,6 +4494,8 @@ function syncDictionaryEditorToPage() {
 
   ensurePageLineIds(currentDictionaryPage);
 
+  recordDictionaryEdit();
+
   saveData();
   renderPageList();
 }
@@ -4541,6 +4540,7 @@ function initNovelEditor() {
 
         bodyInput.value = novel.body;
 
+        
         saveData();
         updateNovelCharCount();
       }
@@ -4548,6 +4548,7 @@ function initNovelEditor() {
   });
 }
 
+//時系列
 function initTimelineEditor(event) {
   const timelineEditorElement =
     document.getElementById("timeline-editor");
@@ -4589,6 +4590,7 @@ function initTimelineEditor(event) {
         currentTimelineEvent.body =
           timelineEditor.state.doc.toString();
 
+        recordTimelineEdit();
         saveData();
       }
     }
