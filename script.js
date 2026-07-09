@@ -491,6 +491,15 @@ const startupWorkTotalChars =
 const startupWorkUpdatedAt =
   document.getElementById("startup-work-updated-at");
 
+const appMenuButton =
+  document.getElementById("app-menu-button");
+
+const appMenu =
+  document.getElementById("app-menu");
+
+const backToStartupButton =
+  document.getElementById("back-to-startup-button");
+
 const startupMenuButton =
   document.getElementById("startup-menu-button");
 
@@ -793,7 +802,7 @@ function restoreFullBackupData(backupData) {
   if (novels.length > 0) {
     showNovel(novels[0].id);
   }
-  
+
   alert("バックアップから復元しました。");
 }
 
@@ -3785,6 +3794,22 @@ exportFullBackupButton.addEventListener("click", () => {
   );
 });
 
+appMenuButton.addEventListener("click", () => {
+  appMenu.classList.toggle("hidden");
+});
+
+backToStartupButton.addEventListener("click", () => {
+  appMenu.classList.add("hidden");
+
+  appShell.classList.add("hidden");
+  startupScreen.classList.remove("hidden");
+
+  selectedStartupWorkId = currentWorkId;
+
+  renderStartupWorkList();
+  renderStartupSelectedWork();
+});
+
 importFullBackupButton.addEventListener("click", () => {
   startupMenu.classList.add("hidden");
 
@@ -4210,6 +4235,8 @@ newWorkButton.addEventListener("click", () => {
   renderStartupWorkList();
   renderStartupSelectedWork();
 });
+
+
 
 
 
