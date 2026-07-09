@@ -256,6 +256,12 @@ textarea {
   background: #a87f52;
 }
 
+.menu-divider {
+  margin: 6px 0;
+  border: none;
+  border-top: 1px solid #ddd0bd;
+}
+
 .side-input {
   width: 100%;
   margin: 4px 0 12px;
