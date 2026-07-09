@@ -3668,20 +3668,23 @@ bodyInput.addEventListener("input", () => {
 
 //フォルダ作成ボタン
 newFolderButton.addEventListener("click", () => {
-  const folderTitle = prompt("フォルダ名を入力してください");
+  showInputModal(
+    "新しいフォルダを作る",
+    "フォルダ名",
+    "",
+    (folderTitle) => {
+      const newFolder = {
+        id: createPageId(),
+        title: folderTitle,
+        order: folders.length + 1,
+        collapsed: false
+      };
 
-  if (!folderTitle) return;
-
-  const newFolder = {
-    id: createPageId(),
-    title: folderTitle,
-    order: folders.length + 1,
-    collapsed: false
-  };
-
-  folders.push(newFolder);
-  saveData();
-  renderPageList();
+      folders.push(newFolder);
+      saveData();
+      renderPageList();
+    }
+  );
 });
 
 searchInput.addEventListener("input", () => {
