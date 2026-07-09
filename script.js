@@ -236,7 +236,7 @@ const defaultUserData = {
 // ==============================
 //localStorageに保存しているデータを読み込む
 //なければ上のデフォルトデータを読み込む
-const data = loadData();
+const data = await loadData();
 
 //dataで読み込んだフォルダ名、ページ名を保存する
 let folders = data.folders;
@@ -582,10 +582,10 @@ function saveData() {
 }
 
 //localStorageにあるデータを読み込む
-function loadData() {
-  const referenceData = loadReferenceData();
-  const workData = loadWorkData();
-  const appSettings = loadAppSettings();
+async function loadData() {
+  const referenceData = await loadReferenceData();
+  const workData = await loadWorkData();
+  const appSettings = await loadAppSettings();
 
   const oldAppData = loadAppData();
 
@@ -5029,7 +5029,3 @@ console.log("Fanfic Studio 起動！");
 console.log(
     window.fanfic.hello()
 );
-
-window.fanfic.loadJson("workData.json").then((data) => {
-  console.log("AppDataから読んだworkData:", data);
-});

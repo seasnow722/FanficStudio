@@ -16,19 +16,6 @@ function createWindow() {
   win.loadURL("http://localhost:5173");
 }
 
-ipcMain.on("save-text", (event, text) => {
-  const filePath = path.join(
-    app.getPath("userData"),
-    "test.txt"
-  );
-
-  //filePath にtext をutf-8 で保存する
-  fs.writeFileSync(filePath, text, "utf-8");
-
-  console.log("保存しました:", filePath);
-});
-
-
 ipcMain.on("save-json", (event, filename, data) => {
   const filePath = path.join(
     app.getPath("userData"),

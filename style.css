@@ -2172,7 +2172,12 @@ body {
 .startup-menu-wrapper {
   position: absolute;
   top: 0;
-  right: 0;
+  left: 0;
+}
+
+.startup-title-row .dropdown-menu {
+  left: 0;
+  right: auto;
 }
 
 .startup-menu-button {
