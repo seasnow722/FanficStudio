@@ -67,10 +67,17 @@ export function saveAppData(dataToSave) {
 }
 
 export function saveReferenceData(referenceData) {
-  browserStorageSave(
-    STORAGE_KEYS.referenceData,
-    referenceData
-  );
+  if (isElectronAvailable()) {
+    electronStorageSave(
+      STORAGE_FILES.referenceData,
+      referenceData
+    );
+  } else {
+    browserStorageSave(
+      STORAGE_KEYS.referenceData,
+      referenceData
+    );
+  }
 }
 
 export function loadReferenceData() {
@@ -84,7 +91,7 @@ export function saveWorkData(workData) {
   if (isElectronAvailable()) {
     //AppDataに行く
     electronStorageSave(
-        //上部にあるSTORAGE_FILESの配列から保存先を決める
+        //上部にあるSTORAGE_FILESオブジェクトから保存ファイル名を取り出す
       STORAGE_FILES.workData,
       workData
     );
@@ -108,10 +115,17 @@ export function loadWorkData() {
 }
 
 export function saveAppSettings(settings) {
-  browserStorageSave(
-    STORAGE_KEYS.appSettings,
-    settings
-  );
+  if (isElectronAvailable()) {
+    electronStorageSave(
+      STORAGE_FILES.appSettings,
+      settings
+    );
+  } else {
+    browserStorageSave(
+      STORAGE_KEYS.appSettings,
+      settings
+    );
+  }
 }
 
 export function loadAppSettings() {
@@ -127,10 +141,17 @@ export function loadAppData() {
 }
 
 export function saveAppUserData(userDataToSave) {
-  browserStorageSave(
-    STORAGE_KEYS.userData,
-    userDataToSave
-  );
+  if (isElectronAvailable()) {
+    electronStorageSave(
+      STORAGE_FILES.userData,
+      userDataToSave
+    );
+  } else {
+    browserStorageSave(
+      STORAGE_KEYS.userData,
+      userDataToSave
+    );
+  }
 }
 
 export function loadAppUserData() {
