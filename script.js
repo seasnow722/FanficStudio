@@ -500,6 +500,18 @@ const appMenu =
 const backToStartupButton =
   document.getElementById("back-to-startup-button");
 
+const appImportToggleButton =
+  document.getElementById("app-import-toggle-button");
+
+const appImportSection =
+  document.getElementById("app-import-section");
+
+const appExportToggleButton =
+  document.getElementById("app-export-toggle-button");
+
+const appExportSection =
+  document.getElementById("app-export-section");
+
 const appImportBaseButton =
   document.getElementById("app-import-base-button");
 
@@ -3814,6 +3826,24 @@ exportFullBackupButton.addEventListener("click", () => {
 
 appMenuButton.addEventListener("click", () => {
   appMenu.classList.toggle("hidden");
+});
+
+appImportToggleButton.addEventListener("click", () => {
+  appImportSection.classList.toggle("hidden");
+
+  appImportToggleButton.textContent =
+    appImportSection.classList.contains("hidden")
+      ? "読み込み ▼"
+      : "読み込み ▲";
+});
+
+appExportToggleButton.addEventListener("click", () => {
+  appExportSection.classList.toggle("hidden");
+
+  appExportToggleButton.textContent =
+    appExportSection.classList.contains("hidden")
+      ? "書き出し ▼"
+      : "書き出し ▲";
 });
 
 backToStartupButton.addEventListener("click", () => {
