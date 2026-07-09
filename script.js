@@ -347,8 +347,6 @@ const newNovelButton = document.getElementById("new-novel-button");
 const deletePageButton = document.getElementById("delete-page-button");
 const deleteNovelButton = document.getElementById("delete-novel-button");
 
-const importButton = document.getElementById("import-button");
-const exportButton = document.getElementById("export-button");
 const importBaseFile = document.getElementById("import-base-file");
 const importWorkFile = document.getElementById("import-work-file");
 
@@ -373,14 +371,6 @@ const flagList = document.getElementById("flag-list");
 
 const layerToggleButton = document.getElementById("layer-toggle-button");
 
-const importMenu = document.getElementById("import-menu");
-const exportMenu = document.getElementById("export-menu");
-
-const importBaseButton = document.getElementById("import-base-button");
-const importWorkButton = document.getElementById("import-work-button");
-const exportBaseButton = document.getElementById("export-base-button");
-const exportWorkButton = document.getElementById("export-work-button");
-
 //HTML要素取得
 const editorElement = document.getElementById("editor");
 
@@ -398,6 +388,8 @@ const redoButton = document.getElementById("redo-button");
 //保存状態表示用
 const saveStatus = document.getElementById("save-status");
 let saveStatusTimer = null;
+const lastSavedAt =
+  document.getElementById("last-saved-at");
 
 //左右画面閉じ開き
 const toggleLeftPaneButton = document.getElementById("toggle-left-pane-button");
@@ -415,12 +407,6 @@ const rightResizer =
   document.getElementById("right-resizer");
 
 const sidebar = document.querySelector(".sidebar");
-
-//小説本文テキスト保存
-const exportCurrentNovelTextButton =
-  document.getElementById("export-current-novel-text-button");
-const exportAllNovelsTextButton =
-  document.getElementById("export-all-novels-text-button");
 
 //modal（ポップアップ）系
 const modalOverlay = document.getElementById("modal-overlay");
@@ -578,6 +564,7 @@ function saveData() {
 
   saveStatusTimer = setTimeout(() => {
     updateSaveStatus("🟢 保存済み", "saved");
+    updateLastSavedAt();
   }, 300);
 }
 
@@ -882,6 +869,15 @@ function updateSaveStatus(text, className = "") {
   if (className) {
     saveStatus.classList.add(className);
   }
+}
+
+function updateLastSavedAt() {
+  if (!lastSavedAt) return;
+
+  const now = new Date();
+
+  lastSavedAt.textContent =
+    `最終保存：${now.toLocaleTimeString()}`;
 }
 
 function loadUserData() {
@@ -3853,17 +3849,6 @@ importWorkFile.addEventListener("change", () => {
   reader.readAsText(file);
 });
 
-// 読み込みメニューを開閉する
-importButton.addEventListener("click", () => {
-  importMenu.classList.toggle("hidden");
-  exportMenu.classList.add("hidden");
-});
-
-// 書き出しメニューを開閉する
-exportButton.addEventListener("click", () => {
-  exportMenu.classList.toggle("hidden");
-  importMenu.classList.add("hidden");
-});
 
 startupMenuButton.addEventListener("click", () => {
   startupMenu.classList.toggle("hidden");
@@ -3912,35 +3897,6 @@ backToStartupButton.addEventListener("click", () => {
   renderStartupSelectedWork();
 });
 
-appImportBaseButton.addEventListener("click", () => {
-  appMenu.classList.add("hidden");
-  importBaseButton.click();
-});
-
-appImportWorkButton.addEventListener("click", () => {
-  appMenu.classList.add("hidden");
-  importWorkButton.click();
-});
-
-appExportBaseButton.addEventListener("click", () => {
-  appMenu.classList.add("hidden");
-  exportBaseButton.click();
-});
-
-appExportWorkButton.addEventListener("click", () => {
-  appMenu.classList.add("hidden");
-  exportWorkButton.click();
-});
-
-appExportCurrentNovelTextButton.addEventListener("click", () => {
-  appMenu.classList.add("hidden");
-  exportCurrentNovelTextButton.click();
-});
-
-appExportAllNovelsTextButton.addEventListener("click", () => {
-  appMenu.classList.add("hidden");
-  exportAllNovelsTextButton.click();
-});
 
 importFullBackupButton.addEventListener("click", () => {
   startupMenu.classList.add("hidden");
@@ -3980,9 +3936,8 @@ importFullBackupFile.addEventListener("change", () => {
 });
 
 // 設定資料読み込み
-importBaseButton.addEventListener("click", () => {
-  importMenu.classList.add("hidden");
-
+appImportBaseButton.addEventListener("click", () => {
+  appMenu.classList.add("hidden");
   showModal(
     "設定資料を読み込みます",
     `
@@ -4006,15 +3961,12 @@ importBaseButton.addEventListener("click", () => {
 });
 
 // 作品読み込み
-importWorkButton.addEventListener("click", () => {
-  importMenu.classList.add("hidden");
+appImportWorkButton.addEventListener("click", () => {
   importWorkFile.click();
 });
 
 // 設定資料書き出し
-// 設定資料書き出し
-exportBaseButton.addEventListener("click", () => {
-  exportMenu.classList.add("hidden");
+appExportBaseButton.addEventListener("click", () => {
 
   showModal(
     "設定資料を書き出します",
@@ -4043,8 +3995,7 @@ exportBaseButton.addEventListener("click", () => {
 });
 
 // 作品書き出し
-exportWorkButton.addEventListener("click", () => {
-  exportMenu.classList.add("hidden");
+appExportWorkButton.addEventListener("click", () => {
 
   const work = getCurrentWork();
   if (!work) return;
@@ -4056,8 +4007,7 @@ exportWorkButton.addEventListener("click", () => {
 });
 
 // 現在開いている小説本文をtxt書き出し
-exportCurrentNovelTextButton.addEventListener("click", () => {
-  exportMenu.classList.add("hidden");
+appExportCurrentNovelTextButton.addEventListener("click", () => {
 
   const novel = getCurrentNovel();
 
@@ -4073,8 +4023,7 @@ exportCurrentNovelTextButton.addEventListener("click", () => {
 });
 
 //小説本文全文書き出し
-exportAllNovelsTextButton.addEventListener("click", () => {
-  exportMenu.classList.add("hidden");
+appExportAllNovelsTextButton.addEventListener("click", () => {
 
   if (novels.length === 0) {
     alert("書き出す本文がありません。");
