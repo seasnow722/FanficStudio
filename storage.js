@@ -59,6 +59,11 @@ function browserStorageLoad(key) {
   return JSON.parse(savedData);
 }
 
+// AppDataの指定ファイルを読んで、中身をjavascriptデータとして返す
+async function electronStorageLoad(filename) {
+  return await window.fanfic.loadJson(filename);
+}
+
 export function saveAppData(dataToSave) {
   browserStorageSave(
     STORAGE_KEYS.appData,
@@ -80,7 +85,13 @@ export function saveReferenceData(referenceData) {
   }
 }
 
-export function loadReferenceData() {
+export async function loadReferenceData() {
+  if (isElectronAvailable()) {
+    return await electronStorageLoad(
+      STORAGE_FILES.referenceData
+    );
+  }
+
   return browserStorageLoad(
     STORAGE_KEYS.referenceData
   );
@@ -108,7 +119,13 @@ export function saveWorkData(workData) {
 
 }
 
-export function loadWorkData() {
+export async function loadWorkData() {
+  if (isElectronAvailable()) {
+    return await electronStorageLoad(
+      STORAGE_FILES.workData
+    );
+  }
+
   return browserStorageLoad(
     STORAGE_KEYS.workData
   );
@@ -128,7 +145,13 @@ export function saveAppSettings(settings) {
   }
 }
 
-export function loadAppSettings() {
+export async function loadAppSettings() {
+  if (isElectronAvailable()) {
+    return await electronStorageLoad(
+      STORAGE_FILES.appSettings
+    );
+  }
+
   return browserStorageLoad(
     STORAGE_KEYS.appSettings
   );
