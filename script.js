@@ -5026,3 +5026,14 @@ renderStartupWorkList();
 renderStartupSelectedWork();
 
 console.log("Fanfic Studio 起動！");
+console.log(
+    window.fanfic.hello()
+);
+
+window.fanfic.saveJson(
+  "test.json",
+  {
+    title: "Fanfic Studio",
+    memo: "JSON保存テスト"
+  }
+);
