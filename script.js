@@ -1672,12 +1672,16 @@ function renderPageList() {
     renameButton.title = "フォルダ名を変更";
 
     renameButton.addEventListener("click", () => {
-      const newTitle = prompt("新しいフォルダ名を入力してください", folder.title);
-      if (!newTitle) return;
-
-      folder.title = newTitle;
-      saveData();
-      renderPageList();
+      showInputModal(
+        "フォルダ名を変更",
+        "新しいフォルダ名",
+        folder.title,
+        (newTitle) => {
+          folder.title = newTitle;
+          saveData();
+          renderPageList();
+        }
+      );
     });
 
     const deleteButton = document.createElement("button");
