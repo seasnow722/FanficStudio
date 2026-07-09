@@ -474,6 +474,9 @@ const startupWorkList =
 const newWorkButton =
   document.getElementById("new-work-button");
 
+const openStartupProfileButton =
+  document.getElementById("open-startup-profile-button");
+
 const startupWorkTotalChars =
   document.getElementById("startup-work-total-chars");
 
@@ -565,7 +568,7 @@ function saveData() {
   saveStatusTimer = setTimeout(() => {
     updateSaveStatus("🟢 保存済み", "saved");
     updateLastSavedAt();
-  }, 300);
+    }, 300);
 }
 
 //localStorageにあるデータを読み込む
@@ -2967,6 +2970,104 @@ function renderActivityReceipt(dateKey) {
   `;
 }
 
+function renderStartupActivityGrass() {
+  const grassElement =
+    document.getElementById("startup-activity-grass");
+
+  if (!grassElement) return;
+
+  const dateKeys =
+    getMonthDateKeys(activityDisplayMonth);
+
+  grassElement.innerHTML = "";
+
+  const grid = document.createElement("div");
+  grid.className = "activity-grass-grid";
+
+  dateKeys.forEach((dateKey) => {
+    const log =
+      userData.writingLogs.find((log) => {
+        return log.date === dateKey;
+      });
+
+    const score = calculateGrassScore(log);
+    const level = getGrassLevel(score);
+
+    const cell = document.createElement("button");
+    cell.className = `grass-cell level-${level}`;
+    cell.textContent = String(Number(dateKey.slice(-2)));
+    cell.title = `${dateKey} / ${score}点`;
+
+    cell.addEventListener("click", () => {
+      renderStartupActivityReceipt(dateKey);
+    });
+
+    grid.appendChild(cell);
+  });
+
+  grassElement.appendChild(grid);
+}
+
+function renderStartupActivityReceipt(dateKey) {
+  const receiptElement =
+    document.getElementById("startup-activity-receipt");
+
+  if (!receiptElement) return;
+
+  const log =
+    userData.writingLogs.find((log) => {
+      return log.date === dateKey;
+    });
+
+  if (!log) {
+    receiptElement.innerHTML = `
+      <div class="receipt-card">
+        <h3>${dateKey}</h3>
+        <p>この日の記録はありません。</p>
+      </div>
+    `;
+    return;
+  }
+
+  const netChars =
+    (log.addedChars || 0) - (log.deletedChars || 0);
+
+  receiptElement.innerHTML = `
+    <div class="receipt-card">
+      <div class="receipt-header">
+        <h3>Fanfic Studio 活動レシート</h3>
+        <span>${dateKey}</span>
+      </div>
+
+      <div class="receipt-items">
+        <div class="receipt-row">
+          <span>起動</span>
+          <strong>${log.launch ? "○" : "—"}</strong>
+        </div>
+
+        <div class="receipt-row">
+          <span>本文追加</span>
+          <strong>+${(log.addedChars || 0).toLocaleString()}文字</strong>
+        </div>
+
+        <div class="receipt-row">
+          <span>本文削除</span>
+          <strong>-${(log.deletedChars || 0).toLocaleString()}文字</strong>
+        </div>
+
+        <div class="receipt-row">
+          <span>本文増減</span>
+          <strong>${netChars.toLocaleString()}文字</strong>
+        </div>
+      </div>
+
+      <div class="receipt-footer">
+        活動スコア：${calculateGrassScore(log)}点
+      </div>
+    </div>
+  `;
+}
+
 function renderNovelCharList() {
   const listElement =
     document.getElementById("novel-char-list");
@@ -4316,6 +4417,46 @@ newWorkButton.addEventListener("click", () => {
   renderStartupWorkList();
   renderStartupSelectedWork();
 });
+});
+
+openStartupProfileButton.addEventListener("click", () => {
+  const log = getTodayWritingLog();
+
+  const netChars =
+    (log.addedChars || 0) - (log.deletedChars || 0);
+
+showModal(
+  "執筆プロフィール",
+  `
+    <div class="startup-profile-modal-layout">
+  <div class="startup-profile-left">
+    <div class="startup-profile-summary">
+      <p>起動回数：${userData.stats.launchCount.toLocaleString()}回</p>
+      <p>今日の追加：${(log.addedChars || 0).toLocaleString()}文字</p>
+      <p>今日の削除：${(log.deletedChars || 0).toLocaleString()}文字</p>
+      <p>今日の増減：${netChars.toLocaleString()}文字</p>
+    </div>
+
+    <hr>
+
+    <div class="startup-profile-section">
+      <h3>活動カレンダー</h3>
+      <div id="startup-activity-grass"></div>
+    </div>
+  </div>
+
+  <div class="startup-profile-right">
+    <h3>活動レシート</h3>
+    <div id="startup-activity-receipt">
+      草をクリックすると、その日の記録が表示されます。
+    </div>
+  </div>
+</div>
+  `,
+  null
+);
+
+renderStartupActivityGrass();
 });
 
 renameWorkButton.addEventListener("click", () => {
