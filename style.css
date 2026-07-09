@@ -262,6 +262,19 @@ textarea {
   border-top: 1px solid #ddd0bd;
 }
 
+.menu-parent-button {
+  font-weight: bold;
+}
+
+.menu-section {
+  padding-left: 12px;
+  margin-bottom: 4px;
+}
+
+.menu-section button {
+  font-size: 13px;
+}
+
 .side-input {
   width: 100%;
   margin: 4px 0 12px;
