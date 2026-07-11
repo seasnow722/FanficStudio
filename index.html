@@ -199,21 +199,49 @@
 
 <div class="sidebar-actions">
 
+  <div class="dictionary-add-menu">
   <button
-    id="new-folder-button"
-    class="new-page-button"
-    title="新規フォルダ"
-  >
-    📁
+  id="new-folder-button"
+  class="new-page-button"
+>
+  📁＋
   </button>
 
-  <button
-    id="new-page-button"
-    class="new-page-button"
-    title="新規辞書ページ"
+  <div
+    id="new-folder-menu"
+    class="dictionary-add-dropdown hidden"
   >
-    📖
-  </button>
+    <button id="new-base-folder-button">
+      設定資料に追加
+    </button>
+
+    <button id="new-work-folder-button">
+      この作品だけに追加
+    </button>
+  </div>
+</div>
+
+  <div class="dictionary-add-menu">
+  <button
+  id="new-page-button"
+  class="new-page-button"
+>
+  📖＋
+</button>
+
+  <div
+    id="new-page-menu"
+    class="dictionary-add-dropdown hidden"
+  >
+    <button id="new-base-page-button">
+      設定資料に追加
+    </button>
+
+    <button id="new-work-page-button">
+      この作品だけに追加
+    </button>
+  </div>
+</div>
 
   <button
     id="new-novel-button"

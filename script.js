@@ -1,4 +1,5 @@
 // ==============================
+// script.js
 // 目次
 // 1. サンプルデータ
 // 2. データ読み込み・現在状態
@@ -341,7 +342,25 @@ const sideInfo = document.getElementById("side-info");
 
 const pageList = document.getElementById("page-list");
 const newFolderButton = document.getElementById("new-folder-button");
+const newFolderMenu =
+  document.getElementById("new-folder-menu");
+
+const newBaseFolderButton =
+  document.getElementById("new-base-folder-button");
+
+const newWorkFolderButton =
+  document.getElementById("new-work-folder-button");
+
 const newPageButton = document.getElementById("new-page-button");
+const newPageMenu =
+  document.getElementById("new-page-menu");
+
+const newBasePageButton =
+  document.getElementById("new-base-page-button");
+
+const newWorkPageButton =
+  document.getElementById("new-work-page-button");
+
 const newNovelButton = document.getElementById("new-novel-button");
 
 const deletePageButton = document.getElementById("delete-page-button");
@@ -648,6 +667,10 @@ async function loadData() {
     if (!work.flags)work.flags = [];
     // 作品ごとの行単位注釈を保存する配列
     if (!work.annotations) work.annotations = [];
+    // 作品専用辞書フォルダ
+    if (!work.folders) work.folders = [];
+    // 作品専用辞書ページ
+    if (!work.pages) work.pages = [];
   });
 
   //左右の幅が保存されていたら使う（??）
@@ -703,13 +726,225 @@ function getCurrentWork() {
     work.hiddenPagesCollapsed = false;
   }
 
+    // 作品専用辞書フォルダがなければ作る
+  if (!work.folders) {
+    work.folders = [];
+  }
+
+  // 作品専用辞書ページがなければ作る
+  if (!work.pages) {
+    work.pages = [];
+  }
+
   return work;
 }
 
-// currentPageId をもとに、現在選択中の辞書ページを取り出す
-function getCurrentPage() {
-  return pages.find((p) => p.id === currentPageId);
+// 現在のレイヤー表示に合わせて、画面に出す辞書フォルダを返す
+function getVisibleDictionaryFolders() {
+  const work = getCurrentWork();
+
+  // 「設定資料のみ」なら、設定資料フォルダだけ
+  if (dictionaryLayerMode === "base") {
+    return folders;
+  }
+
+  // 「設定資料＋作品」なら、両方のフォルダをまとめて返す
+  return [
+    ...folders,
+    ...(work?.folders ?? [])
+  ];
 }
+
+
+// 現在のレイヤー表示に合わせて、画面に出す辞書ページを返す
+function getVisibleDictionaryPages() {
+  const work = getCurrentWork();
+
+  // 「設定資料のみ」なら、設定資料ページだけ
+  if (dictionaryLayerMode === "base") {
+    return basePages;
+  }
+
+  // 「設定資料＋作品」なら、両方のページをまとめて返す
+  return [
+    ...basePages,
+    ...(work?.pages ?? [])
+  ];
+}
+
+// 指定したレイヤーに新しい辞書フォルダを作る
+function createDictionaryFolder(layerType) {
+  showInputModal(
+    "新しいフォルダを作る",
+    "フォルダ名",
+    "",
+    (folderTitle) => {
+      const newFolder = {
+        id: createPageId(),
+        title: folderTitle,
+        collapsed: false
+      };
+
+      if (layerType === "base") {
+        // 設定資料フォルダの末尾へ追加する
+        newFolder.order = folders.length + 1;
+        folders.push(newFolder);
+      }
+
+      if (layerType === "work") {
+        const work = getCurrentWork();
+
+        if (!work) {
+          alert("作品が選択されていません。");
+          return;
+        }
+
+        // 現在の作品専用フォルダの末尾へ追加する
+        newFolder.order = work.folders.length + 1;
+        work.folders.push(newFolder);
+
+        // 作ったフォルダが見える表示へ切り替える
+        dictionaryLayerMode = "overlay";
+        layerToggleButton.textContent =
+          "設定資料＋作品注釈";
+      }
+
+      saveData();
+      renderPageList();
+    }
+  );
+}
+
+// 指定したレイヤーへ、新しい辞書ページを作る
+function createDictionaryPage(layerType) {
+  const work = getCurrentWork();
+
+  // 設定資料側へ追加する場合
+  if (layerType === "base") {
+    const currentPage = getCurrentPage();
+
+    // 今開いているページが設定資料ページなら、同じフォルダへ入れる
+    const currentBasePage =
+      currentPage &&
+      basePages.some((page) => page.id === currentPage.id)
+        ? currentPage
+        : null;
+
+    const targetFolderId =
+      currentBasePage?.folderId ??
+      folders[0]?.id;
+
+    if (!targetFolderId) {
+      alert("先に設定資料フォルダを作成してください。");
+      return;
+    }
+
+    const newPage = {
+      id: createPageId(),
+      title: "新規ページ",
+      folderId: targetFolderId,
+      order: basePages.length + 1,
+      tags: [],
+      body: "",
+      sources: [],
+      lineIds: [createPageId()]
+    };
+
+    basePages.push(newPage);
+
+    saveData();
+    renderPageList();
+    showPage(newPage.id);
+
+    return;
+  }
+
+  // 作品側へ追加する場合
+  if (layerType === "work") {
+    if (!work) {
+      alert("作品が選択されていません。");
+      return;
+    }
+
+    // 作品専用フォルダがまだなければ、自動で1つ作る
+    if (work.folders.length === 0) {
+      work.folders.push({
+        id: createPageId(),
+        title: "作品設定",
+        order: 1,
+        collapsed: false
+      });
+    }
+
+    const currentPage = getCurrentPage();
+
+    // 今開いているページが作品専用ページなら、同じフォルダへ入れる
+    const currentWorkPage =
+      currentPage &&
+      work.pages.some((page) => page.id === currentPage.id)
+        ? currentPage
+        : null;
+
+    const targetFolderId =
+      currentWorkPage?.folderId ??
+      work.folders[0].id;
+
+    const newPage = {
+      id: createPageId(),
+      title: "新規ページ",
+      folderId: targetFolderId,
+      order: work.pages.length + 1,
+      tags: [],
+      body: "",
+      sources: [],
+      lineIds: [createPageId()]
+    };
+
+    work.pages.push(newPage);
+
+    // 作った直後に見えるよう、重ね合わせ表示へ切り替える
+    dictionaryLayerMode = "overlay";
+    layerToggleButton.textContent = "設定資料＋作品注釈";
+
+    saveData();
+    renderPageList();
+    showPage(newPage.id);
+  }
+}
+
+// 現在表示できる辞書ページの中から、選択中のページを返す
+function getCurrentPage() {
+  const visiblePages =
+    getVisibleDictionaryPages();
+
+  return visiblePages.find((page) => {
+    return page.id === currentPageId;
+  });
+}
+
+// この辞書ページが、現在の作品だけで使うページか判定する
+function isWorkDictionaryPage(page) {
+  const work = getCurrentWork();
+
+  if (!work) return false;
+
+  return work.pages.some((workPage) => {
+    return workPage.id === page.id;
+  });
+}
+
+// 辞書ページの所属レイヤーに合ったフォルダ一覧を返す
+function getDictionaryFoldersForPage(page) {
+  const work = getCurrentWork();
+
+  if (isWorkDictionaryPage(page)) {
+    return work?.folders ?? [];
+  }
+
+  return folders;
+}
+
+
 
 // currentNovelId をもとに、現在選択中の小説本文を取り出す
 function getCurrentNovel() {
@@ -1203,9 +1438,13 @@ function showNovel(novelId) {
 
 // 指定した辞書ページを右側のサイドビューに表示する
 function showPage(pageId) {
-  // pages の中から、クリックされたIDと同じ辞書ページを探す
-  const page = pages.find((p) => p.id === pageId);
-  // 見つからなければ何もしない
+  const visiblePages =
+    getVisibleDictionaryPages();
+
+  const page = visiblePages.find((page) => {
+    return page.id === pageId;
+  });
+
   if (!page) return;
 
   // 今選んでいる辞書ページIDを更新する
@@ -1234,12 +1473,32 @@ function updateSideInfo(page) {
       ? relatedEvents.map((event) => `<li>${event.title}</li>`).join("")
       : "<li>なし</li>";
 
-  const folderOptions = folders.map((folder) => {
-    const selected = folder.id === page.folderId ? "selected" : "";
-    return `<option value="${folder.id}" ${selected}>${folder.title}</option>`;
-  }).join("");
+  const pageFolders =
+  getDictionaryFoldersForPage(page);
+
+const folderOptions = pageFolders.map((folder) => {
+  const selected =
+    folder.id === page.folderId
+      ? "selected"
+      : "";
+
+  return `
+    <option value="${folder.id}" ${selected}>
+      ${folder.title}
+    </option>
+  `;
+}).join("");
+
+const layerLabel =
+  isWorkDictionaryPage(page)
+    ? "この作品だけ"
+    : "設定資料";
 
   sideInfo.innerHTML = `
+  <div class="dictionary-layer-label">
+    ${layerLabel}
+  </div>
+
     <label>タイトル</label>
     <input id="side-title" class="side-input" value="${page.title}">
 
@@ -1646,10 +1905,17 @@ moveDownButton.addEventListener("click", () => {
 }
 
 //左サイドバーに小説本文一覧と辞書ページ一覧を表示する
-function renderPageList() {
+  function renderPageList() {
   pageList.innerHTML = "";
 
   renderNovelList();
+
+  // 現在のレイヤー設定に応じたフォルダとページを取得する
+  const visibleFolders =
+    getVisibleDictionaryFolders();
+
+  const visiblePages =
+    getVisibleDictionaryPages();
 
   const keyword = searchInput.value.trim().toLowerCase();
   const isTagSearch = keyword.startsWith("#");
@@ -1662,10 +1928,13 @@ function renderPageList() {
       ? work.hiddenPageIds || []
       : [];
 
-  const sortedFolders = [...folders].sort((a, b) => a.order - b.order);
+  const sortedFolders =
+    [...visibleFolders].sort((a, b) => {
+      return a.order - b.order;
+    });
 
   sortedFolders.forEach((folder) => {
-    const folderPages = pages
+    const folderPages = visiblePages
       .filter((page) => page.folderId === folder.id)
       .filter((page) => !hiddenPageIds.includes(page.id))
       .filter((page) => {
@@ -1731,20 +2000,47 @@ function renderPageList() {
     deleteButton.title = "フォルダを削除";
 
     deleteButton.addEventListener("click", () => {
-      const folderPages = pages.filter((page) => page.folderId === folder.id);
+  const work = getCurrentWork();
 
-      if (folderPages.length > 0) {
-        alert("このフォルダにはページが入っているため削除できません。先にページを別フォルダへ移動してください。");
-        return;
-      }
-
-      const ok = confirm(`「${folder.title}」フォルダを削除しますか？`);
-      if (!ok) return;
-
-      folders = folders.filter((f) => f.id !== folder.id);
-      saveData();
-      renderPageList();
+  const isWorkFolder =
+    work?.folders.some((item) => {
+      return item.id === folder.id;
     });
+
+  const targetPages =
+    isWorkFolder
+      ? work.pages
+      : basePages;
+
+    const folderPages = targetPages.filter((page) => {
+      return page.folderId === folder.id;
+    });
+
+    if (folderPages.length > 0) {
+      alert(
+        "このフォルダにはページが入っているため削除できません。先にページを別フォルダへ移動してください。"
+      );
+      return;
+    } 
+
+    const ok =
+      confirm(`「${folder.title}」フォルダを削除しますか？`);
+
+    if (!ok) return;
+
+    if (isWorkFolder) {
+      work.folders = work.folders.filter((item) => {
+        return item.id !== folder.id;
+      });
+    } else {
+      folders = folders.filter((item) => {
+        return item.id !== folder.id;
+     });
+    }
+
+    saveData();
+    renderPageList();
+  });
 
     folderHeader.appendChild(collapseButton);
     folderHeader.appendChild(groupTitle);
@@ -1814,6 +2110,7 @@ function renderPageList() {
     renderHiddenPageList();
   }
 }
+
 function renderHiddenPageList() {
   const work = getCurrentWork();
   if (!work) return;
@@ -3469,19 +3766,38 @@ function renderStartupWorkList() {
 // 6. 移動系関数
 // ==============================
 // 辞書ページを同じフォルダ内で上下に移動する
+// 辞書ページを、同じレイヤー・同じフォルダ内で上下に移動する
 function movePage(page, direction) {
-  const sameFolderPages = pages
-    .filter((p) => p.folderId === page.folderId)
-    .sort((a, b) => a.order - b.order);
+  const work = getCurrentWork();
 
-  const index = sameFolderPages.findIndex((p) => p.id === page.id);
+  const targetPages =
+    isWorkDictionaryPage(page)
+      ? work?.pages ?? []
+      : basePages;
+
+  const sameFolderPages = targetPages
+    .filter((item) => {
+      return item.folderId === page.folderId;
+    })
+    .sort((a, b) => {
+      return a.order - b.order;
+    });
+
+  const index = sameFolderPages.findIndex((item) => {
+    return item.id === page.id;
+  });
+
   const targetIndex = index + direction;
 
-  if (targetIndex < 0 || targetIndex >= sameFolderPages.length) {
+  if (
+    targetIndex < 0 ||
+    targetIndex >= sameFolderPages.length
+  ) {
     return;
   }
 
-  const targetPage = sameFolderPages[targetIndex];
+  const targetPage =
+    sameFolderPages[targetIndex];
 
   const tempOrder = page.order;
   page.order = targetPage.order;
@@ -3585,18 +3901,26 @@ function updatePaneGrid() {
 }
 
 //左サイドバーのサイズ変更箇所のドラッグを検知する
-leftResizer.addEventListener("mousedown", () => {
+leftResizer.addEventListener("mousedown", (event) => {
   if (appLayout.classList.contains("left-collapsed")) return;
 
+  event.preventDefault();
+
   isDraggingLeft = true;
+  document.body.classList.add("is-resizing");
+
   console.log("左ドラッグ開始！");
 });
 
 //右サイドバーのサイズ変更箇所のドラッグを検知する
-rightResizer.addEventListener("mousedown", () => {
+rightResizer.addEventListener("mousedown", (event) => {
   if (appLayout.classList.contains("right-collapsed")) return;
 
+  event.preventDefault();
+
   isDraggingRight = true;
+  document.body.classList.add("is-resizing");
+
   console.log("右ドラッグ開始！");
 });
 
@@ -3635,6 +3959,8 @@ document.addEventListener("mouseup", () => {
     console.log("右ドラッグ終了！");
     saveData();
   }
+
+  document.body.classList.remove("is-resizing");
 });
 
 
@@ -3676,23 +4002,26 @@ function setupWikiLinkClicks(area) {
 // 8. ボタン・入力イベント登録
 // ==============================
 //辞書作成ボタン
+// 新しい辞書ページを作る
+// 辞書追加メニューを開閉する
 newPageButton.addEventListener("click", () => {
-  const newPage = {
-    id: createPageId(),
-    title: "新規ページ",
-    folderId: "other",
-    order: pages.length + 1,
-    tags: [],
-    body: "",
-    sources: [],
-    lineIds: [createPageId()]
-};
-
-  pages.push(newPage);
-  saveData();
-  renderPageList();
-  showPage(newPage.id);
+  newPageMenu.classList.toggle("hidden");
 });
+
+// 設定資料側へ辞書ページを作る
+newBasePageButton.addEventListener("click", () => {
+  newPageMenu.classList.add("hidden");
+
+  createDictionaryPage("base");
+});
+
+// 現在の作品だけで使う辞書ページを作る
+newWorkPageButton.addEventListener("click", () => {
+  newPageMenu.classList.add("hidden");
+
+  createDictionaryPage("work");
+});
+
 
 //小説本文作成ボタン
 newNovelButton.addEventListener("click", () => {
@@ -3716,13 +4045,26 @@ deletePageButton.addEventListener("click", () => {
   const ok = confirm(`「${page.title}」を削除しますか？`);
   if (!ok) return;
 
-  pages = pages.filter((p) => p.id !== page.id);
+  const work = getCurrentWork();
+
+  if (isWorkDictionaryPage(page)) {
+    work.pages = work.pages.filter((item) => {
+      return item.id !== page.id;
+    });
+  } else {
+    basePages = basePages.filter((item) => {
+      return item.id !== page.id;
+    });
+  }
+
   currentPageId = null;
+  currentDictionaryPage = null;
 
   saveData();
   renderPageList();
 
-  sideInfo.innerHTML = "辞書ページを選択してください。";
+  sideInfo.innerHTML =
+    "辞書ページを選択してください。";
 });
 
 //小説削除ボタン
@@ -3769,25 +4111,23 @@ bodyInput.addEventListener("input", () => {
   saveData();
 });
 
-//フォルダ作成ボタン
+// フォルダ追加メニューを開閉する
 newFolderButton.addEventListener("click", () => {
-  showInputModal(
-    "新しいフォルダを作る",
-    "フォルダ名",
-    "",
-    (folderTitle) => {
-      const newFolder = {
-        id: createPageId(),
-        title: folderTitle,
-        order: folders.length + 1,
-        collapsed: false
-      };
+  newFolderMenu.classList.toggle("hidden");
+});
 
-      folders.push(newFolder);
-      saveData();
-      renderPageList();
-    }
-  );
+// 設定資料側へフォルダを作る
+newBaseFolderButton.addEventListener("click", () => {
+  newFolderMenu.classList.add("hidden");
+
+  createDictionaryFolder("base");
+});
+
+// 現在の作品だけで使うフォルダを作る
+newWorkFolderButton.addEventListener("click", () => {
+  newFolderMenu.classList.add("hidden");
+
+  createDictionaryFolder("work");
 });
 
 searchInput.addEventListener("input", () => {
@@ -4399,6 +4739,7 @@ newWorkButton.addEventListener("click", () => {
     ],
     events: [],
     flags: [],
+    folders: [],
     pages: [],
     annotations: [],
     // 作品を作成した日時を、最終更新日時として保存する。

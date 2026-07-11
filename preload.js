@@ -1,3 +1,5 @@
+//preload.js
+
 // const electron = require("electron");
 // const contextBridge = electron.contextBridge;
 // ↑を短く書いている　 {contextBridge}はElectron道具箱からcontextBridgeを取り出す
