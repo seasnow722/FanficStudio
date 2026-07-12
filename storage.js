@@ -5,8 +5,14 @@ const STORAGE_KEYS = {
   appData: "fanficStudioData",
   userData: "fanficStudioUserData",
 
+  // 旧方式
   referenceData: "fanficStudioReferenceData",
   workData: "fanficStudioWorkData",
+
+  // 新方式：一覧データ
+  referenceIndex: "fanficStudioReferenceIndex",
+  workIndex: "fanficStudioWorkIndex",
+
   appSettings: "fanficStudioAppSettings"
 };
 
@@ -18,8 +24,14 @@ function browserStorageSave(key, data) {
 }
 
 const STORAGE_FILES = {
+  // 旧方式
   referenceData: "referenceData.json",
   workData: "workData.json",
+
+  // 新方式：一覧データ
+  referenceIndex: "referenceIndex.json",
+  workIndex: "workIndex.json",
+
   appSettings: "appSettings.json",
   userData: "userData.json"
 };
@@ -47,6 +59,28 @@ function isElectronAvailable() {
   );
 }
 
+// 設定資料IDから、設定資料本体の保存先を作る
+function getReferenceFilePath(referenceId) {
+  return `references/${referenceId}.json`;
+}
+
+
+// 作品IDから、作品本体の保存先を作る
+function getWorkFilePath(workId) {
+  return `works/${workId}.json`;
+}
+
+
+// ブラウザ版で個別設定資料を保存するためのキーを作る
+function getReferenceBrowserKey(referenceId) {
+  return `fanficStudioReference:${referenceId}`;
+}
+
+
+// ブラウザ版で個別作品を保存するためのキーを作る
+function getWorkBrowserKey(workId) {
+  return `fanficStudioWork:${workId}`;
+}
 
 function browserStorageLoad(key) {
   const savedData =
@@ -128,6 +162,159 @@ export async function loadWorkData() {
 
   return browserStorageLoad(
     STORAGE_KEYS.workData
+  );
+}
+
+// ==============================
+// 新方式：設定資料index
+// ==============================
+
+// 設定資料一覧を保存する
+export function saveReferenceIndex(referenceIndex) {
+  if (isElectronAvailable()) {
+    electronStorageSave(
+      STORAGE_FILES.referenceIndex,
+      referenceIndex
+    );
+  } else {
+    browserStorageSave(
+      STORAGE_KEYS.referenceIndex,
+      referenceIndex
+    );
+  }
+}
+
+
+// 設定資料一覧を読み込む
+export async function loadReferenceIndex() {
+  if (isElectronAvailable()) {
+    return await electronStorageLoad(
+      STORAGE_FILES.referenceIndex
+    );
+  }
+
+  return browserStorageLoad(
+    STORAGE_KEYS.referenceIndex
+  );
+}
+
+
+// ==============================
+// 新方式：作品index
+// ==============================
+
+// 作品一覧を保存する
+export function saveWorkIndex(workIndex) {
+  if (isElectronAvailable()) {
+    electronStorageSave(
+      STORAGE_FILES.workIndex,
+      workIndex
+    );
+  } else {
+    browserStorageSave(
+      STORAGE_KEYS.workIndex,
+      workIndex
+    );
+  }
+}
+
+
+// 作品一覧を読み込む
+export async function loadWorkIndex() {
+  if (isElectronAvailable()) {
+    return await electronStorageLoad(
+      STORAGE_FILES.workIndex
+    );
+  }
+
+  return browserStorageLoad(
+    STORAGE_KEYS.workIndex
+  );
+}
+
+// ==============================
+// 新方式：設定資料本体
+// ==============================
+
+// 設定資料本体を、IDごとのJSONへ保存する
+export function saveReferenceById(referenceData) {
+  if (!referenceData?.id) {
+    throw new Error(
+      "設定資料の保存にはidが必要です。"
+    );
+  }
+
+  if (isElectronAvailable()) {
+    electronStorageSave(
+      getReferenceFilePath(referenceData.id),
+      referenceData
+    );
+  } else {
+    browserStorageSave(
+      getReferenceBrowserKey(referenceData.id),
+      referenceData
+    );
+  }
+}
+
+
+// 指定IDの設定資料本体を読み込む
+export async function loadReferenceById(referenceId) {
+  if (!referenceId) {
+    return null;
+  }
+
+  if (isElectronAvailable()) {
+    return await electronStorageLoad(
+      getReferenceFilePath(referenceId)
+    );
+  }
+
+  return browserStorageLoad(
+    getReferenceBrowserKey(referenceId)
+  );
+}
+
+// ==============================
+// 新方式：作品本体
+// ==============================
+
+// 作品本体を、IDごとのJSONへ保存する
+export function saveWorkById(workData) {
+  if (!workData?.id) {
+    throw new Error(
+      "作品の保存にはidが必要です。"
+    );
+  }
+
+  if (isElectronAvailable()) {
+    electronStorageSave(
+      getWorkFilePath(workData.id),
+      workData
+    );
+  } else {
+    browserStorageSave(
+      getWorkBrowserKey(workData.id),
+      workData
+    );
+  }
+}
+
+
+// 指定IDの作品本体を読み込む
+export async function loadWorkById(workId) {
+  if (!workId) {
+    return null;
+  }
+
+  if (isElectronAvailable()) {
+    return await electronStorageLoad(
+      getWorkFilePath(workId)
+    );
+  }
+
+  return browserStorageLoad(
+    getWorkBrowserKey(workId)
   );
 }
 

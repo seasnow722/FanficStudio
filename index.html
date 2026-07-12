@@ -31,12 +31,26 @@
 
     <div class="startup-layout">
 
-      <section class="startup-left">
-        <h2>作品一覧</h2>
+    <section class="startup-left">
+      <h2>設定資料</h2>
 
-        <button class="startup-sub-button">
-          設定資料を選ぶ（準備中）
-        </button>
+      <button
+        id="new-reference-button"
+        class="startup-sub-button"
+      >
+        ＋ 新しい設定資料を作る
+      </button>
+
+      <!--
+        referenceIndex.json に保存されている
+        設定資料一覧を、JavaScriptでここへ表示する。
+      -->
+      <div
+        id="startup-reference-list"
+        class="startup-work-list"
+      ></div>
+
+      <h2>作品一覧</h2>
 
         <!-- 起動画面から新しい作品を作るための入口。
         作品を増やせるようにすると、作品一覧のスクロール確認もしやすくなる。 -->

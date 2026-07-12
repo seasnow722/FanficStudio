@@ -21,11 +21,22 @@ import { undo, redo, history, historyKeymap } from "@codemirror/commands";
 import { Decoration, WidgetType, keymap } from "@codemirror/view";
 import Chart from "chart.js/auto";
 import {
-  saveReferenceData,
+  // 旧形式の読み込み
+  // 0.7.x以前のデータ移行に使うため、load側だけ残す
   loadReferenceData,
-
-  saveWorkData,
   loadWorkData,
+
+  // 新方式：index
+  saveReferenceIndex,
+  loadReferenceIndex,
+  saveWorkIndex,
+  loadWorkIndex,
+
+  // 新方式：個別データ
+  saveReferenceById,
+  loadReferenceById,
+  saveWorkById,
+  loadWorkById,
 
   saveAppSettings,
   loadAppSettings,
@@ -235,6 +246,9 @@ const defaultUserData = {
 // ==============================
 // 2. データ読み込み・現在状態
 // ==============================
+// 旧形式の保存データを確認する
+await migrateLegacyData();
+
 //localStorageに保存しているデータを読み込む
 //なければ上のデフォルトデータを読み込む
 const data = await loadData();
@@ -243,6 +257,24 @@ const data = await loadData();
 let folders = data.folders;
 let basePages = data.basePages;
 let works = data.works;
+
+// 現在開いている設定資料
+let currentReferenceId =
+  data.currentReferenceId;
+
+let currentReferenceTitle =
+  data.currentReferenceTitle;
+
+// 起動画面用の軽量一覧
+let referenceIndex =
+  data.referenceIndex ?? {
+    referenceSets: []
+  };
+
+let workIndex =
+  data.workIndex ?? {
+    works: []
+  };
 
 // 起動時に、最初に作業する作品IDを決める。
 // 前回開いていた作品IDが保存されていて、今も存在するならそれを使う。
@@ -301,6 +333,10 @@ let dictionaryLayerMode = "base";
 let leftPaneWidth = data.leftPaneWidth;
 let rightPaneWidth = data.rightPaneWidth;
 
+// 保存形式の移行がどこまで済んでいるか
+let migrationVersion =
+  data.migrationVersion ?? 0;
+
 //辞書用codemirror本体
 let dictionaryEditor = null;
 //今編集している辞書
@@ -318,12 +354,22 @@ const userData = loadUserData();
 
 let activityDisplayMonth = new Date();
 
+
+
 // 起動画面で選択中の作品ID。
 // まだ本体で作業する作品ではなく、右側に詳細表示するための一時的な選択。
 let selectedStartupWorkId = currentWorkId;
 
-
-
+// 起動画面で選択中の設定資料ID。
+// 選択中の作品が属する設定資料を優先する。
+// 作品がなければ、現在開いている設定資料や一覧の先頭を使う。
+let selectedStartupReferenceId =
+  works.find((work) => {
+    return work.id === selectedStartupWorkId;
+  })?.referenceSetId ??
+  currentReferenceId ??
+  referenceIndex.referenceSets[0]?.id ??
+  null;
 
 
 // ==============================
@@ -483,6 +529,18 @@ const continueWorkButton =
     "continue-work-button"
   );
 
+// 起動画面の設定資料一覧を表示する場所
+const startupReferenceList =
+  document.getElementById(
+    "startup-reference-list"
+  );
+
+// 新しい設定資料を作るボタン
+const newReferenceButton =
+  document.getElementById(
+    "new-reference-button"
+  );
+  
 // 起動画面に表示する作品一覧の置き場。
 // HTML側の #startup-work-list に、JSで作品ボタンを並べる。
 const startupWorkList =
@@ -561,122 +619,492 @@ const importFullBackupFile =
 // ==============================
 // 4. 汎用関数
 // ==============================
-//何か変更したときここで保存する
-function saveData() {
-  updateSaveStatus("🟡 保存中...", "saving");
+// 旧形式の保存データを、新しいindex＋個別JSON形式へコピーする
+async function migrateLegacyData() {
+  const appSettings =
+    await loadAppSettings();
 
-  saveReferenceData({
-  folders,
-  basePages
-  });
+  // 一度移行済みなら、二重に実行しない
+  if (appSettings?.migrationVersion >= 1) {
+    console.log("保存データの移行は完了済みです。");
+    return;
+  }
 
-  saveWorkData(
-    works
+  // 今まで使っていた保存データを読み込む
+  const legacyReference =
+    await loadReferenceData();
+
+  const legacyWorks =
+    await loadWorkData();
+
+  // 旧設定資料がなければ移行対象なし
+  if (!legacyReference) {
+    console.log("移行対象の旧設定資料はありません。");
+    return;
+  }
+
+  const now =
+    new Date().toISOString();
+
+  // 設定資料には今まで専用IDがなかったため、
+  // 移行時に初めてIDを付ける
+  const referenceId =
+    createDataId("reference");
+
+  const migratedReference = {
+    id: referenceId,
+    title: "既存の設定資料",
+    folders:
+      legacyReference.folders ?? [],
+    pages:
+      legacyReference.basePages ?? [],
+    events: [],
+    flags: [],
+    updatedAt: now
+  };
+
+  // 設定資料本体と一覧を新方式で保存する
+  saveReferenceById(
+    migratedReference
   );
 
+  saveReferenceIndex({
+    referenceSets: [
+      {
+        id: referenceId,
+        title: migratedReference.title,
+        order: 1,
+        updatedAt: now
+      }
+    ]
+  });
+
+  const migratedWorks =
+    Array.isArray(legacyWorks)
+      ? legacyWorks.map((work, index) => {
+          const migratedWork = {
+            ...structuredClone(work),
+
+            // 旧作品を、今回作った設定資料へ紐づける
+            referenceSetId: referenceId,
+
+            // 不足している配列を補う
+            novels: work.novels ?? [],
+            folders: work.folders ?? [],
+            pages: work.pages ?? [],
+            events: work.events ?? [],
+            flags: work.flags ?? [],
+            annotations: work.annotations ?? [],
+            hiddenPageIds: work.hiddenPageIds ?? [],
+
+            progress: work.progress ?? {
+              useGoal: false,
+              goalChars: 0
+            },
+
+            updatedAt:
+              work.updatedAt ?? now
+          };
+
+          // 作品本体を1作品1ファイルで保存
+          saveWorkById(
+            migratedWork
+          );
+
+          // indexへ入れる軽量情報だけを返す
+          return {
+            id: migratedWork.id,
+            title: migratedWork.title,
+            referenceSetId: referenceId,
+            order: index + 1,
+            updatedAt: migratedWork.updatedAt
+          };
+        })
+      : [];
+
+  saveWorkIndex({
+    works: migratedWorks
+  });
+
+  // 旧ファイルは消さず、移行済みの印だけ設定へ保存する
+  saveAppSettings({
+    ...appSettings,
+    migrationVersion: 1
+  });
+
+  console.log(
+    "旧データを新しい保存形式へコピーしました。"
+  );
+
+  console.log(
+    "設定資料ID:",
+    referenceId
+  );
+
+  console.log(
+    "移行した作品数:",
+    migratedWorks.length
+  );
+}
+
+// 画面上の変更内容を、新しい保存形式へ反映する
+// 一覧はindex、本体はIDごとの個別JSONへ保存する
+function saveData() {
+  updateSaveStatus(
+    "🟡 保存中...",
+    "saving"
+  );
+
+  const now =
+    new Date().toISOString();
+
+  // =================================
+  // 新方式：現在の設定資料
+  // =================================
+  if (currentReferenceId) {
+    saveReferenceById({
+      id: currentReferenceId,
+      title: currentReferenceTitle,
+      folders,
+      pages: basePages,
+      events: [],
+      flags: [],
+      updatedAt: now
+    });
+
+    const referenceItem = {
+      id: currentReferenceId,
+      title: currentReferenceTitle,
+      updatedAt: now
+    };
+
+    const existingReferenceIndex =
+      referenceIndex.referenceSets.findIndex(
+        (item) => {
+          return item.id === currentReferenceId;
+        }
+      );
+
+    if (existingReferenceIndex >= 0) {
+      const oldItem =
+        referenceIndex.referenceSets[
+          existingReferenceIndex
+        ];
+
+      referenceIndex.referenceSets[
+        existingReferenceIndex
+      ] = {
+        ...oldItem,
+        ...referenceItem
+      };
+    } else {
+      referenceIndex.referenceSets.push({
+        ...referenceItem,
+        order:
+          referenceIndex.referenceSets.length + 1
+      });
+    }
+
+    saveReferenceIndex(
+      referenceIndex
+    );
+  }
+
+  // =================================
+  // 新方式：各作品を個別保存
+  // =================================
+  const newWorkIndexItems =
+  works.map((work, index) => {
+    if (!work.referenceSetId) {
+      work.referenceSetId =
+        currentReferenceId;
+    }
+
+    // 現在編集中の作品だけ、最終更新日時を更新する。
+    // 他の作品まで「今更新した」扱いにしないため。
+    if (work.id === currentWorkId) {
+      work.updatedAt = now;
+    }
+
+    saveWorkById(
+      work
+    );
+
+    return {
+      id: work.id,
+      title: work.title,
+      referenceSetId:
+        work.referenceSetId,
+      order: index + 1,
+      updatedAt:
+        work.updatedAt ?? now
+    };
+  });
+
+  workIndex = {
+    works: newWorkIndexItems
+  };
+
+  saveWorkIndex(
+    workIndex
+  );
+
+  // =================================
+  // アプリ設定
+  // =================================
   saveAppSettings({
     leftPaneWidth,
     rightPaneWidth,
-    lastWorkId: currentWorkId
+    lastWorkId: currentWorkId,
+    lastReferenceId:
+      currentReferenceId,
+    migrationVersion
   });
 
   if (saveStatusTimer) {
     clearTimeout(saveStatusTimer);
   }
 
-  saveStatusTimer = setTimeout(() => {
-    updateSaveStatus("🟢 保存済み", "saved");
-    updateLastSavedAt();
+  saveStatusTimer =
+    setTimeout(() => {
+      updateSaveStatus(
+        "🟢 保存済み",
+        "saved"
+      );
+
+      updateLastSavedAt();
     }, 300);
 }
 
 //localStorageにあるデータを読み込む
+// 保存データを読み込む
+// 新方式があれば新方式を優先し、なければ旧方式へ戻る
 async function loadData() {
-  const referenceData = await loadReferenceData();
-  const workData = await loadWorkData();
-  const appSettings = await loadAppSettings();
+  const appSettings =
+    await loadAppSettings();
 
-  const oldAppData = loadAppData();
+  const referenceIndex =
+    await loadReferenceIndex();
 
-  const parsedData = {
-  folders:
-    referenceData?.folders ??
-    oldAppData?.folders ??
-    defaultData.folders,
+  const workIndex =
+    await loadWorkIndex();
 
-  basePages:
-    referenceData?.basePages ??
-    oldAppData?.basePages ??
-    defaultData.basePages,
+  // =================================
+  // 新方式から読み込む
+  // =================================
+  if (
+    Array.isArray(referenceIndex?.referenceSets) &&
+    referenceIndex.referenceSets.length > 0
+  ) {
+    // 前回開いていた作品のindex情報を探す
+    const lastWorkIndexItem =
+      workIndex?.works?.find((item) => {
+        return item.id === appSettings?.lastWorkId;
+      });
 
-  works:
-    workData ??
-    oldAppData?.works ??
-    defaultData.works,
+    // 前回作品に紐づく設定資料を優先する
+    // 見つからなければ設定資料一覧の先頭を使う
+    const currentReferenceId =
+      lastWorkIndexItem?.referenceSetId ??
+      appSettings?.lastReferenceId ??
+      referenceIndex.referenceSets[0].id;
 
-  leftPaneWidth:
-    appSettings?.leftPaneWidth ??
-    oldAppData?.leftPaneWidth ??
-    defaultData.leftPaneWidth,
+    const currentReference =
+      await loadReferenceById(
+        currentReferenceId
+      );
 
-  rightPaneWidth:
-    appSettings?.rightPaneWidth ??
-    oldAppData?.rightPaneWidth ??
-    defaultData.rightPaneWidth,
+    // indexに登録されている作品本体を読み込む
+    const loadedWorks = [];
 
-  lastWorkId:
-    appSettings?.lastWorkId ??
-    null
-};
+    for (const workItem of workIndex?.works ?? []) {
+      const work =
+        await loadWorkById(workItem.id);
 
-  if (!parsedData.folders) {
-    parsedData.folders = defaultData.folders;
+      if (work) {
+        loadedWorks.push(work);
+      }
+    }
+
+    return normalizeLoadedData({
+      folders:
+        currentReference?.folders ?? [],
+
+      basePages:
+        currentReference?.pages ?? [],
+
+      works:
+        loadedWorks,
+
+      leftPaneWidth:
+        appSettings?.leftPaneWidth ??
+        defaultData.leftPaneWidth,
+
+      rightPaneWidth:
+        appSettings?.rightPaneWidth ??
+        defaultData.rightPaneWidth,
+
+      lastWorkId:
+        appSettings?.lastWorkId ??
+        loadedWorks[0]?.id ??
+        null,
+
+      migrationVersion:
+        appSettings?.migrationVersion ??
+        0,
+
+      currentReferenceId,
+
+      currentReferenceTitle:
+        currentReference?.title ??
+        "設定資料",
+
+      referenceIndex,
+      workIndex
+    });
+  }
+
+  // =================================
+  // 旧方式へフォールバック
+  // =================================
+  const referenceData =
+    await loadReferenceData();
+
+  const workData =
+    await loadWorkData();
+
+  const oldAppData =
+    loadAppData();
+
+  return normalizeLoadedData({
+    folders:
+      referenceData?.folders ??
+      oldAppData?.folders ??
+      defaultData.folders,
+
+    basePages:
+      referenceData?.basePages ??
+      oldAppData?.basePages ??
+      defaultData.basePages,
+
+    works:
+      workData ??
+      oldAppData?.works ??
+      defaultData.works,
+
+    leftPaneWidth:
+      appSettings?.leftPaneWidth ??
+      oldAppData?.leftPaneWidth ??
+      defaultData.leftPaneWidth,
+
+    rightPaneWidth:
+      appSettings?.rightPaneWidth ??
+      oldAppData?.rightPaneWidth ??
+      defaultData.rightPaneWidth,
+
+    lastWorkId:
+      appSettings?.lastWorkId ??
+      null,
+
+    migrationVersion:
+      appSettings?.migrationVersion ??
+      0,
+
+    currentReferenceId: null,
+    currentReferenceTitle:
+      "既存の設定資料",
+
+    referenceIndex: null,
+    workIndex: null
+  });
+}
+
+// 新旧どちらから読んでも、画面が扱える形へデータを補う
+function normalizeLoadedData(parsedData) {
+  if (!Array.isArray(parsedData.folders)) {
+    parsedData.folders = [];
+  }
+
+  if (!Array.isArray(parsedData.basePages)) {
+    parsedData.basePages = [];
+  }
+
+  if (!Array.isArray(parsedData.works)) {
+    parsedData.works = [];
   }
 
   parsedData.basePages.forEach((page) => {
     if (!page.folderId) {
-      page.folderId = page.type || "other";
+      page.folderId =
+        page.type || "other";
     }
 
-    if (!page.order) {
+    if (page.order === undefined) {
       page.order = 999;
     }
 
-    // 設定資料本文の各行に付ける出典を保存する配列
-    // lineIndex = 本文の何行目か
-    // source = 出典名（ゲーム3章、アニメ5話など）
-    if (!page.sources) {
-    page.sources = [];
+    if (!Array.isArray(page.tags)) {
+      page.tags = [];
     }
 
-    //辞書ページにlineIdsがなければ本文の行数分IDをつくる
-    if (!page.lineIds) {
-    page.lineIds = page.body
-    .split("\n")
-    .map(() => createPageId());
-}
+    if (!Array.isArray(page.sources)) {
+      page.sources = [];
+    }
 
+    if (!Array.isArray(page.lineIds)) {
+      page.lineIds =
+        String(page.body ?? "")
+          .split("\n")
+          .map(() => createPageId());
+    }
+
+    if (typeof page.body !== "string") {
+      page.body = "";
+    }
   });
 
   parsedData.works.forEach((work) => {
-    // 小説の配列を保存する
-    if (!work.novels) work.novels = [];
-    // 時系列の配列を保存する
-    if (!work.events) work.events = [];
-    //フラグの配列を保存する
-    if (!work.flags)work.flags = [];
-    // 作品ごとの行単位注釈を保存する配列
-    if (!work.annotations) work.annotations = [];
-    // 作品専用辞書フォルダ
-    if (!work.folders) work.folders = [];
-    // 作品専用辞書ページ
-    if (!work.pages) work.pages = [];
+    if (!Array.isArray(work.novels)) {
+      work.novels = [];
+    }
+
+    if (!Array.isArray(work.events)) {
+      work.events = [];
+    }
+
+    if (!Array.isArray(work.flags)) {
+      work.flags = [];
+    }
+
+    if (!Array.isArray(work.annotations)) {
+      work.annotations = [];
+    }
+
+    if (!Array.isArray(work.folders)) {
+      work.folders = [];
+    }
+
+    if (!Array.isArray(work.pages)) {
+      work.pages = [];
+    }
+
+    if (!Array.isArray(work.hiddenPageIds)) {
+      work.hiddenPageIds = [];
+    }
+
+    if (!work.progress) {
+      work.progress = {
+        useGoal: false,
+        goalChars: 0
+      };
+    }
   });
 
-  //左右の幅が保存されていたら使う（??）
-  //保存されていないなら240か320になる
-  parsedData.leftPaneWidth = parsedData.leftPaneWidth ?? 240;
-  parsedData.rightPaneWidth = parsedData.rightPaneWidth ?? 320;
+  parsedData.leftPaneWidth =
+    parsedData.leftPaneWidth ?? 240;
+
+  parsedData.rightPaneWidth =
+    parsedData.rightPaneWidth ?? 320;
 
   return parsedData;
 }
@@ -685,6 +1113,13 @@ async function loadData() {
 //Date.now()は現在時刻の数字なので、毎回違うIDになりやすい
 function createPageId() {
   return `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+// 保存ファイル用のIDを、種類が分かる形で作る
+function createDataId(prefix) {
+  return `${prefix}-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2)}`;
 }
 
 // currentWorkId をもとに、現在選択中の作品データを取り出す
@@ -738,6 +1173,21 @@ function getCurrentWork() {
 
   return work;
 }
+
+// 起動画面で選択中の設定資料に属する作品だけを返す
+function getStartupWorksForSelectedReference() {
+  if (!selectedStartupReferenceId) {
+    return [];
+  }
+
+  return works.filter((work) => {
+    return (
+      work.referenceSetId ===
+      selectedStartupReferenceId
+    );
+  });
+}
+
 
 // 現在のレイヤー表示に合わせて、画面に出す辞書フォルダを返す
 function getVisibleDictionaryFolders() {
@@ -1396,6 +1846,32 @@ function downloadReceiptImage() {
     link.href = canvas.toDataURL("image/png");
     link.click();
   });
+}
+
+// 保存用の日時文字列を、人間が読みやすい形へ変換する
+function formatDateTime(dateText) {
+  if (!dateText) {
+    return "未記録";
+  }
+
+  const date =
+    new Date(dateText);
+
+  // 日付として読み込めなかった場合は、そのまま返す
+  if (Number.isNaN(date.getTime())) {
+    return dateText;
+  }
+
+  return date.toLocaleString(
+    "ja-JP",
+    {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    }
+  );
 }
 
 
@@ -3667,9 +4143,21 @@ function renderStartupSelectedWork() {
   if (!startupLastWorkTitle || !continueWorkButton) return;
 
   if (!selectedWork) {
-    startupLastWorkTitle.textContent = "作品なし";
-    continueWorkButton.disabled = true;
-    renameWorkButton.disabled = true;
+    startupLastWorkTitle.textContent =
+      "作品なし";
+
+    startupWorkTotalChars.textContent =
+      "0";
+
+    startupWorkUpdatedAt.textContent =
+      "未記録";
+
+    continueWorkButton.disabled =
+      true;
+
+    renameWorkButton.disabled =
+      true;
+
     return;
   }
 
@@ -3687,9 +4175,179 @@ function renderStartupSelectedWork() {
     totalChars.toLocaleString();
 
   startupWorkUpdatedAt.textContent =
-    selectedWork.updatedAt || "未記録";
+  formatDateTime(
+    selectedWork.updatedAt
+  );
 } // function renderStartupSelectedWork を閉じる
 
+// 起動画面に設定資料一覧を表示する
+function renderStartupReferenceList() {
+  if (!startupReferenceList) return;
+
+  startupReferenceList.innerHTML = "";
+
+  const sortedReferences =
+    [...referenceIndex.referenceSets].sort(
+      (a, b) => {
+        return (
+          (a.order ?? 999) -
+          (b.order ?? 999)
+        );
+      }
+    );
+
+  if (sortedReferences.length === 0) {
+    startupReferenceList.innerHTML = `
+      <p class="empty-message">
+        設定資料がありません。
+      </p>
+    `;
+
+    return;
+  }
+
+  sortedReferences.forEach((referenceItem) => {
+    // 設定資料名と編集ボタンを横並びにする1行
+    const row =
+      document.createElement("div");
+
+    row.className =
+      "startup-work-row";
+
+    // 設定資料を選択するボタン
+    const selectButton =
+      document.createElement("button");
+
+    selectButton.className =
+      "startup-work-button";
+
+    selectButton.textContent =
+      referenceItem.title;
+
+    if (
+      referenceItem.id ===
+      selectedStartupReferenceId
+    ) {
+      selectButton.classList.add(
+        "active"
+      );
+    }
+
+    selectButton.addEventListener(
+      "click",
+      () => {
+        selectedStartupReferenceId =
+          referenceItem.id;
+
+        const referenceWorks =
+          getStartupWorksForSelectedReference();
+
+        selectedStartupWorkId =
+          referenceWorks[0]?.id ?? null;
+
+        renderStartupReferenceList();
+        renderStartupWorkList();
+        renderStartupSelectedWork();
+      }
+    );
+
+    // 設定資料名を変更するボタン
+    const renameButton =
+      document.createElement("button");
+
+    renameButton.className =
+      "startup-work-delete-button";
+
+    renameButton.textContent = "✎";
+    renameButton.title =
+      "設定資料名を変更";
+
+    renameButton.addEventListener(
+      "click",
+      (event) => {
+        // 親の設定資料選択まで同時に発火するのを防ぐ
+        event.stopPropagation();
+
+        renameReference(
+          referenceItem
+        );
+      }
+    );
+
+    row.appendChild(
+      selectButton
+    );
+
+    row.appendChild(
+      renameButton
+    );
+
+    startupReferenceList.appendChild(
+      row
+    );
+  });
+}
+
+// 起動画面から設定資料名を変更する
+function renameReference(referenceItem) {
+  showInputModal(
+    "設定資料名を変更",
+    "新しい設定資料名",
+    referenceItem.title,
+    async (newTitle) => {
+      const now =
+        new Date().toISOString();
+
+      // 一覧データの名前を変更する
+      referenceItem.title =
+        newTitle;
+
+      referenceItem.updatedAt =
+        now;
+
+      // 設定資料本体を読み込む
+      const referenceData =
+        await loadReferenceById(
+          referenceItem.id
+        );
+
+      if (!referenceData) {
+        alert(
+          "設定資料本体を読み込めませんでした。"
+        );
+
+        return;
+      }
+
+      // 個別JSON側の名前も変更する
+      referenceData.title =
+        newTitle;
+
+      referenceData.updatedAt =
+        now;
+
+      saveReferenceById(
+        referenceData
+      );
+
+      saveReferenceIndex(
+        referenceIndex
+      );
+
+      // 現在本体で開いている設定資料なら、
+      // メモリ上の名前も同時に変更する
+      if (
+        currentReferenceId ===
+        referenceItem.id
+      ) {
+        currentReferenceTitle =
+          newTitle;
+      }
+
+      renderStartupReferenceList();
+    }
+  );
+}
 
 // 起動画面に作品一覧を表示する。
 function renderStartupWorkList() {
@@ -3697,10 +4355,28 @@ function renderStartupWorkList() {
 
   startupWorkList.innerHTML = "";
 
-  // 最終更新日時が新しい作品ほど上に表示する。
-  const sortedWorks = [...works].sort((a, b) => {
-    return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
+const referenceWorks =
+  getStartupWorksForSelectedReference();
+
+// 現在選択している設定資料に属する作品だけを、
+// 最終更新日時が新しい順に並べる。
+const sortedWorks =
+  [...referenceWorks].sort((a, b) => {
+    return (
+      new Date(b.updatedAt || 0) -
+      new Date(a.updatedAt || 0)
+    );
   });
+
+  if (sortedWorks.length === 0) {
+  startupWorkList.innerHTML = `
+    <p class="empty-message">
+      この設定資料に属する作品はありません。
+    </p>
+  `;
+
+  return;
+}
 
     // 作品ボタンと削除ボタンを横並びにするための1行を作る。
   sortedWorks.forEach((work) => {
@@ -4329,10 +5005,15 @@ backToStartupButton.addEventListener("click", () => {
   appShell.classList.add("hidden");
   startupScreen.classList.remove("hidden");
 
-  selectedStartupWorkId = currentWorkId;
+selectedStartupWorkId =
+  currentWorkId;
 
-  renderStartupWorkList();
-  renderStartupSelectedWork();
+selectedStartupReferenceId =
+  currentReferenceId;
+
+renderStartupReferenceList();
+renderStartupWorkList();
+renderStartupSelectedWork();
 });
 
 
@@ -4689,14 +5370,72 @@ activityNextMonthButton.addEventListener("click", () => {
 
 // 起動画面で選択している作品を、本体画面で開く。
 // 作品を開くために必要な処理を、1か所にまとめておく。
-function openSelectedWork() {
+// 起動画面で選択している作品と、
+// その作品に紐づく設定資料を本体画面で開く。
+async function openSelectedWork() {
   if (!selectedStartupWorkId) return;
 
-  // 起動画面で選んでいた作品を、実際の作業対象にする。
-  currentWorkId = selectedStartupWorkId;
+  const selectedWork =
+    works.find((work) => {
+      return (
+        work.id ===
+        selectedStartupWorkId
+      );
+    });
 
-  // 作業対象の作品に合わせて、本文一覧も切り替える。
-  novels = getCurrentWork().novels;
+  if (!selectedWork) {
+    alert("作品データが見つかりません。");
+    return;
+  }
+
+  if (!selectedWork.referenceSetId) {
+    alert(
+      "この作品には設定資料が紐づいていません。"
+    );
+    return;
+  }
+
+  const selectedReference =
+    await loadReferenceById(
+      selectedWork.referenceSetId
+    );
+
+  if (!selectedReference) {
+    alert(
+      "作品に紐づく設定資料を読み込めませんでした。"
+    );
+    return;
+  }
+
+  // 実際に作業する作品を切り替える
+  currentWorkId =
+    selectedWork.id;
+
+  // 実際に作業する設定資料を切り替える
+  currentReferenceId =
+    selectedReference.id;
+
+  currentReferenceTitle =
+    selectedReference.title;
+
+  // 読み込んだ設定資料本体を、
+  // 現在画面で使う配列へ入れる
+  folders =
+    selectedReference.folders ?? [];
+
+  basePages =
+    selectedReference.pages ?? [];
+
+  pages = basePages;
+
+  // 選択した作品の本文一覧へ切り替える
+  novels =
+    selectedWork.novels ?? [];
+
+  // 前の作品で開いていたページ・本文の選択を解除する
+  currentPageId = null;
+  currentNovelId = null;
+  currentDictionaryPage = null;
 
   saveData();
 
@@ -4706,8 +5445,14 @@ function openSelectedWork() {
   updatePaneGrid();
   renderPageList();
 
+  sideInfo.innerHTML =
+    "辞書ページを選択してください。";
+
   if (novels.length > 0) {
     showNovel(novels[0].id);
+  } else {
+    titleInput.value = "";
+    bodyInput.value = "";
   }
 
   updateWritingStats();
@@ -4719,16 +5464,28 @@ continueWorkButton.addEventListener("click", () => {
 });
 
 newWorkButton.addEventListener("click", () => {
-  showInputModal(
+ if (!selectedStartupReferenceId) {
+      alert(
+        "先に設定資料を選択してください。"
+      );
+      return;
+    }
+
+    showInputModal(
     "新しい作品を作る",
     "作品名",
     "",
     (title) => {
-      const nowText = new Date().toLocaleString();
+      const nowText =
+        new Date().toISOString();
 
       const newWork = {
-        id: createPageId(),
-        title,    // 新しく作った作品には、空の小説本文を1本入れておく。
+        id: createDataId("work"),
+        title,// 新しく作った作品には、空の小説本文を1本入れておく。
+
+        // 起動画面で選択している設定資料へ作品を紐づける
+        referenceSetId:
+        selectedStartupReferenceId, 
     // 本体を開いたときに「何も選ばれていない空画面」にならないようにするため。
     novels: [
       {
@@ -4818,7 +5575,79 @@ renameWorkButton.addEventListener("click", () => {
   );
 });
 
+// 起動画面から、新しい設定資料を作る
+newReferenceButton.addEventListener(
+  "click",
+  () => {
+    showInputModal(
+      "新しい設定資料を作る",
+      "設定資料名",
+      "",
+      (title) => {
+        const now =
+          new Date().toISOString();
 
+        const referenceId =
+          createDataId("reference");
+
+        // 設定資料本体。
+        // references/reference-xxxx.json に保存される。
+        const newReference = {
+          id: referenceId,
+          title,
+
+          // 新規設定資料でも、すぐ辞書ページを作れるように
+          // 最初のフォルダを1つ用意する。
+          folders: [
+            {
+              id: createPageId(),
+              title: "設定資料",
+              order: 1,
+              collapsed: false
+            }
+          ],
+
+          pages: [],
+          events: [],
+          flags: [],
+
+          updatedAt: now
+        };
+
+        // 設定資料本体を個別JSONとして保存する。
+        saveReferenceById(
+          newReference
+        );
+
+        // 起動画面用の軽量な一覧にも追加する。
+        referenceIndex.referenceSets.push({
+          id: referenceId,
+          title,
+          order:
+            referenceIndex.referenceSets.length + 1,
+          updatedAt: now
+        });
+
+        saveReferenceIndex(
+          referenceIndex
+        );
+
+        // 今作った設定資料を、起動画面上で選択状態にする。
+        selectedStartupReferenceId =
+          referenceId;
+
+        // 新しい設定資料にはまだ作品がないので、
+        // 作品の選択をいったん解除する。
+        selectedStartupWorkId =
+          null;
+
+        renderStartupReferenceList();
+        renderStartupWorkList();
+        renderStartupSelectedWork();
+      }
+    );
+  }
+);
 
 
 
@@ -5454,11 +6283,29 @@ saveUserData();
 setupProgressEvents();
 
 renderStartupScreen();
-// 起動画面に、保存されている作品一覧を表示する。
+
+// 起動画面に、保存されている設定資料一覧を表示する。
+renderStartupReferenceList();
+
+// 選択中の設定資料に属する作品一覧を表示する。
 renderStartupWorkList();
+
 renderStartupSelectedWork();
 
 console.log("Fanfic Studio 起動！");
 console.log(
     window.fanfic.hello()
 );
+
+// v0.8.0保存方式の動作確認用。
+// テスト完了後に削除する。
+window.fanficStorageTest = {
+  saveReferenceIndex,
+  loadReferenceIndex,
+  saveWorkIndex,
+  loadWorkIndex,
+  saveReferenceById,
+  loadReferenceById,
+  saveWorkById,
+  loadWorkById
+};

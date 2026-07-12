@@ -38,7 +38,13 @@ contextBridge.exposeInMainWorld(
     //invoke 読み込んだデータを返して欲しい
     loadJson(filename) {
         return ipcRenderer.invoke("load-json", filename);
-    }
+    },
 
+    // 現在のAppData保存先を確認する
+    getUserDataPath() {
+      return ipcRenderer.invoke(
+      "get-user-data-path"
+      );
+    }
   }
 );
