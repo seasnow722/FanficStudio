@@ -53,9 +53,11 @@ let writingChartInstance = null;
 
 import {
   codeFolding,
-  foldGutter,
+  foldedRanges,
   foldKeymap,
-  foldService
+  foldService,
+  foldState,
+  toggleFold
 } from "@codemirror/language";
 
 
@@ -5415,6 +5417,287 @@ function ensurePageLineIds(page) {
   }
 }
 
+// CodeMirrorで本文が変更されたとき、
+// 変更前の各行IDを変更後の対応する行へ引き継ぐ
+function updatePageLineIdsFromTransaction(
+  page,
+  transaction
+) {
+  if (!page) return;
+  if (!transaction.docChanged) return;
+
+  const oldDoc =
+    transaction.startState.doc;
+
+  const newDoc =
+    transaction.newDoc;
+
+  // 変更前の行数とlineIds数を揃えておく
+  if (!Array.isArray(page.lineIds)) {
+    page.lineIds = [];
+  }
+
+  // 過去の処理でlineIdsが行数より多くなっている場合は、
+// 変更前文書の行数へ揃える
+if (
+  page.lineIds.length >
+  oldDoc.lines
+) {
+  page.lineIds =
+    page.lineIds.slice(
+      0,
+      oldDoc.lines
+    );
+}
+
+  while (
+    page.lineIds.length <
+    oldDoc.lines
+  ) {
+    page.lineIds.push(
+      createPageId()
+    );
+  }
+
+  const oldLineIds =
+    [...page.lineIds];
+
+  // 変更後の各行に、どの旧IDを引き継ぐかを入れる
+  const candidatesByNewLine =
+    Array.from(
+      {
+        length: newDoc.lines
+      },
+      () => []
+    );
+
+  oldLineIds.forEach(
+    (lineId, oldIndex) => {
+      const oldLine =
+        oldDoc.line(oldIndex + 1);
+
+      // 変更前の行頭・行末が、
+      // 変更後のどこへ移ったか調べる
+      const mappedFrom =
+        transaction.changes.mapPos(
+          oldLine.from,
+          1
+        );
+
+      const mappedTo =
+        transaction.changes.mapPos(
+          oldLine.to,
+          -1
+        );
+
+      const safePosition =
+        Math.max(
+          0,
+          Math.min(
+            mappedFrom,
+            newDoc.length
+          )
+        );
+
+      const newLineIndex =
+        newDoc.lineAt(
+          safePosition
+        ).number - 1;
+
+      // 元の行内容がどれくらい残っているか。
+      // 行全体を削除した場合は0に近くなる。
+      const survivingLength =
+        Math.max(
+          0,
+          mappedTo - mappedFrom
+        );
+
+      candidatesByNewLine[
+        newLineIndex
+      ].push({
+        lineId,
+        survivingLength,
+        oldIndex
+      });
+    }
+  );
+
+  const newLineIds =
+    [];
+
+  // 改行削除で複数の旧行が1行になった場合に、
+  // 消える側のIDを残るIDへ付け替えるための対応表
+  const redirectedLineIds =
+    new Map();
+
+  candidatesByNewLine.forEach(
+    (candidates, newIndex) => {
+      if (
+        candidates.length === 0
+      ) {
+        // 新しく追加された行
+        newLineIds[newIndex] =
+          createPageId();
+
+        return;
+      }
+
+      // 内容が多く残った旧行のIDを優先する。
+      // 同じなら上側の行を優先する。
+      candidates.sort((a, b) => {
+        return (
+          b.survivingLength -
+            a.survivingLength ||
+          a.oldIndex -
+            b.oldIndex
+        );
+      });
+
+      const keptLineId =
+        candidates[0].lineId;
+
+      newLineIds[newIndex] =
+        keptLineId;
+
+      // 同じ行へ合流した他のIDは、
+      // 採用されたIDへ付け替える
+      candidates
+        .slice(1)
+        .forEach((candidate) => {
+          redirectedLineIds.set(
+            candidate.lineId,
+            keptLineId
+          );
+        });
+    }
+  );
+
+  page.lineIds =
+    newLineIds;
+
+  updateLineReferencesAfterEdit(
+    page,
+    redirectedLineIds
+  );
+}
+
+// 改行追加・削除後に、
+// 出典と作品注釈のlineId・lineIndexを現在の行へ合わせる
+function updateLineReferencesAfterEdit(
+  page,
+  redirectedLineIds
+) {
+  const work =
+    getCurrentWork();
+
+  const lineIndexById =
+    new Map();
+
+  page.lineIds.forEach(
+    (lineId, index) => {
+      lineIndexById.set(
+        lineId,
+        index
+      );
+    }
+  );
+
+  // 改行削除で2行が1行へ合流した場合は、
+  // 消えた行IDを残った行IDへ付け替える
+  const resolveLineId =
+    (oldLineId) => {
+      let currentLineId =
+        oldLineId;
+
+      const visited =
+        new Set();
+
+      while (
+        redirectedLineIds.has(
+          currentLineId
+        ) &&
+        !visited.has(
+          currentLineId
+        )
+      ) {
+        visited.add(
+          currentLineId
+        );
+
+        currentLineId =
+          redirectedLineIds.get(
+            currentLineId
+          );
+      }
+
+      return currentLineId;
+    };
+
+  if (!Array.isArray(page.sources)) {
+    page.sources = [];
+  }
+
+  page.sources.forEach(
+    (sourceItem) => {
+      if (!sourceItem.lineId) {
+        return;
+      }
+
+      sourceItem.lineId =
+        resolveLineId(
+          sourceItem.lineId
+        );
+
+      const newIndex =
+        lineIndexById.get(
+          sourceItem.lineId
+        );
+
+      if (newIndex !== undefined) {
+        sourceItem.lineIndex =
+          newIndex;
+      }
+    }
+  );
+
+  if (
+    !work ||
+    !Array.isArray(
+      work.annotations
+    )
+  ) {
+    return;
+  }
+
+  work.annotations
+    .filter((annotation) => {
+      return (
+        annotation.pageId ===
+        page.id
+      );
+    })
+    .forEach((annotation) => {
+      if (!annotation.lineId) {
+        return;
+      }
+
+      annotation.lineId =
+        resolveLineId(
+          annotation.lineId
+        );
+
+      const newIndex =
+        lineIndexById.get(
+          annotation.lineId
+        );
+
+      if (newIndex !== undefined) {
+        annotation.lineIndex =
+          newIndex;
+      }
+    });
+}
+
 function setupProgressEvents() {
   const useGoalCheckbox =
     document.getElementById("use-goal-checkbox");
@@ -5852,8 +6135,6 @@ function syncDictionaryEditorToPage() {
   currentDictionaryPage.body =
     dictionaryEditor.state.doc.toString();
 
-  ensurePageLineIds(currentDictionaryPage);
-
   recordDictionaryEdit();
 
   saveData();
@@ -5957,6 +6238,164 @@ function initTimelineEditor(event) {
   });
 }
 
+// 辞書見出しの「# 」を、
+// 画面上では「▼ 」「▶ 」として表示する
+class DictionaryHeadingToggleWidget
+  extends WidgetType {
+
+  constructor(
+    lineFrom,
+    isFolded
+  ) {
+    super();
+
+    this.lineFrom =
+      lineFrom;
+
+    this.isFolded =
+      isFolded;
+  }
+
+  // 前回と同じ見た目なら、
+  // CodeMirrorがDOMを作り直さず再利用できる
+  eq(other) {
+    return (
+      other.lineFrom ===
+        this.lineFrom &&
+      other.isFolded ===
+        this.isFolded
+    );
+  }
+
+  toDOM(view) {
+    const toggle =
+      document.createElement(
+        "span"
+      );
+
+    toggle.className =
+      "cm-dictionary-heading-toggle";
+
+    toggle.textContent =
+      this.isFolded
+        ? "▶ "
+        : "▼ ";
+
+    toggle.title =
+      this.isFolded
+        ? "クリックして開く"
+        : "クリックして閉じる";
+
+    // mousedownを使うことで、
+    // CodeMirrorが先にカーソルを動かすのを防ぐ
+    toggle.addEventListener(
+      "mousedown",
+      (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        // toggleFoldは現在のカーソル行を対象にするため、
+        // クリックした見出し行へカーソルを移す
+        view.dispatch({
+          selection: {
+            anchor:
+              this.lineFrom
+          }
+        });
+
+        toggleFold(
+          view
+        );
+
+        view.focus();
+      }
+    );
+
+    return toggle;
+  }
+}
+
+// 「# 見出し」の「# 」部分を、
+// 開閉状態に応じた三角Widgetへ置き換える
+function buildDictionaryHeadingDecorations(
+  state
+) {
+  const decorations = [];
+
+  // 現在閉じられている範囲を取得する
+  const currentFoldedRanges =
+    foldedRanges(
+      state
+    );
+
+  for (
+    let lineNumber = 1;
+    lineNumber <=
+      state.doc.lines;
+    lineNumber++
+  ) {
+    const line =
+      state.doc.line(
+        lineNumber
+      );
+
+    const headingMatch =
+      line.text.match(
+        /^#\s+/
+      );
+
+    // 「# 半角スペース」で始まる行だけ対象
+    if (!headingMatch) {
+      continue;
+    }
+
+    let isFolded = false;
+
+    // 今のfoldServiceでは、
+    // 折りたたみ範囲が見出し行末から始まる
+    currentFoldedRanges.between(
+      line.to,
+      Math.min(
+        line.to + 1,
+        state.doc.length
+      ),
+      (from) => {
+        if (
+          from === line.to
+        ) {
+          isFolded = true;
+        }
+      }
+    );
+
+    const markerLength =
+      headingMatch[0].length;
+
+    decorations.push(
+      Decoration.replace({
+        widget:
+          new DictionaryHeadingToggleWidget(
+            line.from,
+            isFolded
+          ),
+
+        // Widgetの前後へ入力した文字を
+        // 見出し記号の一部にしない
+        inclusive: false
+      }).range(
+        line.from,
+        line.from +
+          markerLength
+      )
+    );
+  }
+
+  return Decoration.set(
+    decorations,
+    true
+  );
+}
+
 // 「# 見出し」から次の「# 見出し」の直前までを、
 // 折りたたみ可能な範囲としてCodeMirrorへ伝える
 function dictionaryHeadingFoldService(
@@ -6014,12 +6453,18 @@ function dictionaryHeadingFoldService(
 }
 
 //辞書ページ用
+// 辞書ページ用CodeMirrorを作る
 function initDictionaryEditor(page) {
   const dictionaryEditorElement =
-    document.getElementById("dictionary-editor");
+    document.getElementById(
+      "dictionary-editor"
+    );
 
-  if (!dictionaryEditorElement) return;
+  if (!dictionaryEditorElement) {
+    return;
+  }
 
+  // 前の辞書ページ用Editorが残っていたら破棄する
   if (dictionaryEditor) {
     dictionaryEditor.destroy();
     dictionaryEditor = null;
@@ -6027,99 +6472,171 @@ function initDictionaryEditor(page) {
 
   currentDictionaryPage = page;
 
-  dictionaryEditor = new EditorView({
-  doc: page.body,
-  parent: dictionaryEditorElement,
-  extensions: [
-  history(),
+  // 古いデータでlineIdsが足りない場合に備えて、
+  // Editorを作る前に現在の行数へ揃える
+  ensurePageLineIds(page);
 
-  // 「# 見出し」を折りたたみ対象として登録する
-  foldService.of(
-    dictionaryHeadingFoldService
-  ),
+  dictionaryEditor =
+    new EditorView({
+      doc: page.body,
 
-  // エディター左側へ開閉用の三角を表示する
-  foldGutter({
-    openText: "▼",
-    closedText: "▶"
-  }),
+      parent:
+        dictionaryEditorElement,
 
-  // 折りたたんだ範囲の表示方法を設定する
-  codeFolding({
-    placeholderText: " … "
-  }),
+      extensions: [
+        history(),
 
-  keymap.of([
-    ...historyKeymap,
-    ...foldKeymap,
+        // 「# 見出し」を折りたたみ対象として登録する
+        foldService.of(
+          dictionaryHeadingFoldService
+        ),
 
-    {
-      key: "Ctrl-Shift-z",
-      run: redo
-    },
-    {
-      key: "Mod-Shift-z",
-      run: redo
-    }
-  ]),
+        // 折りたたんだ範囲の表示
+        codeFolding({
+          placeholderText: " … "
+        }),
 
-  EditorView.lineWrapping,
+        keymap.of([
+          ...historyKeymap,
+          ...foldKeymap,
 
-  EditorView.decorations.compute(
-    ["doc"],
-    (state) => {
-      return buildWikiLinkDecorations(state);
-    }
-  ),
+          {
+            key: "Ctrl-Shift-z",
+            run: redo
+          },
+          {
+            key: "Mod-Shift-z",
+            run: redo
+          }
+        ]),
 
-  EditorView.decorations.compute(
-    ["doc"],
-    (state) => {
-      return buildDictionaryDecorations({
+        EditorView.lineWrapping,
+
+        // 「# 」を「▼ 」「▶ 」へ置き換える
+        // 文書だけでなく、折りたたみ状態が変わった時も再計算する
+          EditorView.decorations.compute(
+        [
+          "doc",
+          foldState
+        ],
+        (state) => {
+        return buildDictionaryHeadingDecorations(
         state
-      });
+      );
     }
   ),
-  EditorView.domEventHandlers({
-  click: (event, view) => {
-    const target = event.target;
 
-    if (!(target instanceof HTMLElement)) {
-      return false;
-    }
+        // Wikiリンクの見た目を作る
+        EditorView.decorations.compute(
+          ["doc"],
+          (state) => {
+            return buildWikiLinkDecorations(
+              state
+            );
+          }
+        ),
 
-    const link = target.closest(".cm-wiki-link");
+        // 出典・注釈・＋ボタンを行間へ表示する
+        EditorView.decorations.compute(
+          ["doc"],
+          (state) => {
+            return buildDictionaryDecorations({
+              state
+            });
+          }
+        ),
 
-    if (!link) {
-      return false;
-    }
+        // Wikiリンクをクリックしたときの処理
+        EditorView.domEventHandlers({
+          click: (event) => {
+            const target =
+              event.target;
 
-    const pageTitle = link.dataset.title;
-    if (!pageTitle) return false;
+            if (
+              !(
+                target instanceof
+                HTMLElement
+              )
+            ) {
+              return false;
+            }
 
-    const targetPage =
-      pages.find((page) => page.title === pageTitle);
+            const link =
+              target.closest(
+                ".cm-wiki-link"
+              );
 
-    if (!targetPage) {
-      alert(`「${pageTitle}」のページはまだありません`);
-      return true;
-    }
+            if (!link) {
+              return false;
+            }
 
-    showPage(targetPage.id);
-    return true;
-  }
-})
-],
+            const pageTitle =
+              link.dataset.title;
 
-  dispatch: (transaction) => {
-    dictionaryEditor.update([transaction]);
+            if (!pageTitle) {
+              return false;
+            }
 
-    if (transaction.docChanged) {
-      syncDictionaryEditorToPage();
-    }
-  }
-  });
+            const targetPage =
+              pages.find((page) => {
+                return (
+                  page.title ===
+                  pageTitle
+                );
+              });
+
+            if (!targetPage) {
+              alert(
+                `「${pageTitle}」のページはまだありません`
+              );
+
+              return true;
+            }
+
+            showPage(
+              targetPage.id
+            );
+
+            return true;
+          }
+        })
+      ],
+
+      // CodeMirrorで文字・改行が変更されたときの処理
+      dispatch: (transaction) => {
+        if (
+          transaction.docChanged &&
+          currentDictionaryPage
+        ) {
+          // 変更前後の位置を使い、
+          // 出典・注釈用の行IDを先に更新する
+          updatePageLineIdsFromTransaction(
+            currentDictionaryPage,
+            transaction
+          );
+
+          // Decorationの再計算より先に、
+          // page.bodyも変更後の本文へ更新する
+          currentDictionaryPage.body =
+            transaction.newDoc.toString();
+        }
+
+        // CodeMirror本体へ変更を反映する
+        dictionaryEditor.update([
+          transaction
+        ]);
+
+        if (
+          transaction.docChanged
+        ) {
+          recordDictionaryEdit();
+          saveData();
+          renderPageList();
+        }
+      }
+    });
 }
+
 
 // CodeMirrorの行間に表示する「注釈っぽい箱」
 class AnnotationWidget extends WidgetType {
@@ -6449,24 +6966,50 @@ if (
 
   const sources = page.sources || [];
 
-  const lineSources = sources.filter((sourceItem) => {
+  const lineSources =
+  sources.filter((sourceItem) => {
+    // 新しいデータはlineIdだけで判定する
+    if (sourceItem.lineId) {
+      return (
+        sourceItem.lineId ===
+        lineId
+      );
+    }
+
+    // lineIdを持たない古いデータだけ、
+    // lineIndexを救済用に使う
     return (
-      sourceItem.lineId === lineId ||
-      sourceItem.lineIndex === index
+      sourceItem.lineIndex ===
+      index
     );
   });
 
   const annotations =
   dictionaryLayerMode === "overlay"
-    ? work.annotations.filter((annotation) => {
-        return (
-          annotation.pageId === page.id &&
-          (
-            annotation.lineId === lineId ||
-            annotation.lineIndex === index
-          )
-        );
-      })
+    ? work.annotations.filter(
+        (annotation) => {
+          if (
+            annotation.pageId !==
+            page.id
+          ) {
+            return false;
+          }
+
+          // 新しいデータはlineIdだけで判定する
+          if (annotation.lineId) {
+            return (
+              annotation.lineId ===
+              lineId
+            );
+          }
+
+          // 古いデータだけlineIndexで救済する
+          return (
+            annotation.lineIndex ===
+            index
+          );
+        }
+      )
     : [];
 
 lineSources.forEach((sourceItem) => {
