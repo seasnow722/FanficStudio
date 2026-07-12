@@ -2469,3 +2469,29 @@ body.is-resizing * {
 
   min-width: 180px;
 }
+
+/* 辞書CodeMirrorの折りたたみ欄 */
+#dictionary-editor .cm-foldGutter {
+  width: 22px;
+}
+
+/* 折りたたみ用の三角 */
+#dictionary-editor .cm-foldGutter .cm-gutterElement {
+  cursor: pointer;
+  color: #7b5a3c;
+  font-size: 13px;
+}
+
+/* 閉じた部分に表示される「…」 */
+#dictionary-editor .cm-foldPlaceholder {
+  margin-left: 6px;
+  padding: 1px 7px;
+
+  border: 1px solid #d8c8b4;
+  border-radius: 999px;
+
+  background: #f7efe3;
+  color: #777;
+
+  cursor: pointer;
+}

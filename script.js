@@ -51,6 +51,13 @@ import {
 let novelEditor = null;
 let writingChartInstance = null;
 
+import {
+  codeFolding,
+  foldGutter,
+  foldKeymap,
+  foldService
+} from "@codemirror/language";
+
 
 // ==============================
 // 1. サンプルデータ
@@ -2172,16 +2179,17 @@ const layerLabel =
     ${layerLabel}
   </div>
 
-    <label>タイトル</label>
-    <input id="side-title" class="side-input" value="${page.title}">
-
     <label>フォルダ</label>
     <select id="side-folder" class="side-input">
       ${folderOptions}
     </select>
 
-    <label>タグ</label>
-    <input id="side-tags" class="side-input" value="${page.tags.join(", ")}">
+    <label>タイトル</label>
+    <input
+      id="side-title"
+      class="side-input"
+      value="${page.title}"
+    >
 
     <label>本文</label>
 
@@ -2535,7 +2543,6 @@ function showEditSourceForm(page, sourceItem) {
 function setupSideEditor(page) {
   const sideTitle = document.getElementById("side-title");
   const sideFolder = document.getElementById("side-folder");
-  const sideTags = document.getElementById("side-tags");
   //const sideBody = document.getElementById("side-body");
   const moveUpButton = document.getElementById("move-page-up");
   const moveDownButton = document.getElementById("move-page-down");
@@ -2556,16 +2563,6 @@ function setupSideEditor(page) {
     renderPageList();
   });
 
-  //辞書のタグ編集
-  sideTags.addEventListener("input", () => {
-    page.tags = sideTags.value
-      .split(",")
-      .map((tag) => tag.trim())
-      .filter((tag) => tag !== "");
-
-    recordDictionaryEdit();
-    saveData();
-  });
 
 moveUpButton.addEventListener("click", () => {
   movePage(page, -1);
@@ -2591,8 +2588,6 @@ moveDownButton.addEventListener("click", () => {
     getVisibleDictionaryPages();
 
   const keyword = searchInput.value.trim().toLowerCase();
-  const isTagSearch = keyword.startsWith("#");
-  const tagKeyword = keyword.replace("#", "");
 
   const work = getCurrentWork();
 
@@ -2613,16 +2608,14 @@ moveDownButton.addEventListener("click", () => {
       .filter((page) => {
         if (!keyword) return true;
 
-        if (isTagSearch) {
-          return page.tags.some((tag) =>
-            tag.toLowerCase().includes(tagKeyword)
-          );
-        }
-
         return (
-          page.title.toLowerCase().includes(keyword) ||
-          page.body.toLowerCase().includes(keyword) ||
-          page.tags.join(" ").toLowerCase().includes(keyword)
+          page.title
+            .toLowerCase()
+            .includes(keyword) ||
+
+          page.body
+            .toLowerCase()
+            .includes(keyword)
         );
       })
       .sort((a, b) => a.order - b.order);
@@ -5964,6 +5957,62 @@ function initTimelineEditor(event) {
   });
 }
 
+// 「# 見出し」から次の「# 見出し」の直前までを、
+// 折りたたみ可能な範囲としてCodeMirrorへ伝える
+function dictionaryHeadingFoldService(
+  state,
+  lineStart,
+  lineEnd
+) {
+  const headingLine =
+    state.doc.lineAt(lineStart);
+
+  // 行頭が「# 半角スペース」でなければ見出しではない
+  if (!/^#\s+/.test(headingLine.text)) {
+    return null;
+  }
+
+  // 初期値は文書の最後。
+  // 次の見出しがなければ、ページ末尾まで折りたたむ。
+  let foldTo =
+    state.doc.length;
+
+  // 今の見出しより後ろの行を、順番に調べる
+  for (
+    let lineNumber =
+      headingLine.number + 1;
+
+    lineNumber <= state.doc.lines;
+
+    lineNumber++
+  ) {
+    const nextLine =
+      state.doc.line(lineNumber);
+
+    // 次の見出しを発見したら、その直前までにする
+    if (/^#\s+/.test(nextLine.text)) {
+      foldTo =
+        nextLine.from - 1;
+
+      break;
+    }
+  }
+
+  // 見出しの直後に本文がない場合は、
+  // 折りたたむ範囲が存在しない
+  if (foldTo <= headingLine.to) {
+    return null;
+  }
+
+  return {
+    // 見出し行自体は残す
+    from: headingLine.to,
+
+    // 次の見出し直前、または文書末尾まで隠す
+    to: foldTo
+  };
+}
+
 //辞書ページ用
 function initDictionaryEditor(page) {
   const dictionaryEditorElement =
@@ -5984,8 +6033,26 @@ function initDictionaryEditor(page) {
   extensions: [
   history(),
 
+  // 「# 見出し」を折りたたみ対象として登録する
+  foldService.of(
+    dictionaryHeadingFoldService
+  ),
+
+  // エディター左側へ開閉用の三角を表示する
+  foldGutter({
+    openText: "▼",
+    closedText: "▶"
+  }),
+
+  // 折りたたんだ範囲の表示方法を設定する
+  codeFolding({
+    placeholderText: " … "
+  }),
+
   keymap.of([
     ...historyKeymap,
+    ...foldKeymap,
+
     {
       key: "Ctrl-Shift-z",
       run: redo
@@ -5996,8 +6063,7 @@ function initDictionaryEditor(page) {
     }
   ]),
 
-    EditorView.lineWrapping
-  ,
+  EditorView.lineWrapping,
 
   EditorView.decorations.compute(
     ["doc"],
