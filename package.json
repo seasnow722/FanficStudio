@@ -1,6 +1,6 @@
 {
   "name": "fanficstudio",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Personal writing and reference manager",
   "main": "main.js",
   "scripts": {

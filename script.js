@@ -876,6 +876,184 @@ function saveData() {
     }, 300);
 }
 
+// 保存データがまったく存在しない初回起動時に、
+// サンプル設定資料とサンプル作品を新形式で作成する
+function createInitialSampleData() {
+  const now =
+    new Date().toISOString();
+
+  const referenceId =
+    createDataId("reference");
+
+  // defaultDataを直接書き換えないように、
+  // structuredCloneで複製してから使う
+  const sampleReference = {
+    id: referenceId,
+    title: "サンプル設定資料",
+
+    folders:
+      structuredClone(
+        defaultData.folders
+      ),
+
+    pages:
+      structuredClone(
+        defaultData.basePages
+      ),
+
+    events: [],
+    flags: [],
+
+    updatedAt: now
+  };
+
+  const sampleWorks =
+    structuredClone(
+      defaultData.works
+    ).map((work, index) => {
+      return {
+        ...work,
+
+        // 新形式用の作品IDを付け直す
+        id: createDataId("work"),
+
+        // サンプル設定資料へ紐づける
+        referenceSetId:
+          referenceId,
+
+        folders:
+          work.folders ?? [],
+
+        pages:
+          work.pages ?? [],
+
+        events:
+          work.events ?? [],
+
+        flags:
+          work.flags ?? [],
+
+        annotations:
+          work.annotations ?? [],
+
+        hiddenPageIds:
+          work.hiddenPageIds ?? [],
+
+        progress:
+          work.progress ?? {
+            useGoal: false,
+            goalChars: 0
+          },
+
+        updatedAt: now
+      };
+    });
+
+  const initialReferenceIndex = {
+    referenceSets: [
+      {
+        id: referenceId,
+        title:
+          sampleReference.title,
+        order: 1,
+        updatedAt: now
+      }
+    ]
+  };
+
+  const initialWorkIndex = {
+    works:
+      sampleWorks.map(
+        (work, index) => {
+          return {
+            id: work.id,
+            title: work.title,
+
+            referenceSetId:
+              referenceId,
+
+            order: index + 1,
+
+            updatedAt: now
+          };
+        }
+      )
+  };
+
+  // 設定資料本体を個別JSONへ保存
+  saveReferenceById(
+    sampleReference
+  );
+
+  // 作品本体を1作品1ファイルで保存
+  sampleWorks.forEach((work) => {
+    saveWorkById(
+      work
+    );
+  });
+
+  // 起動画面用の一覧を保存
+  saveReferenceIndex(
+    initialReferenceIndex
+  );
+
+  saveWorkIndex(
+    initialWorkIndex
+  );
+
+  // 初回サンプルはすでに新形式なので、
+  // 旧形式からの移行は完了扱いにする
+  saveAppSettings({
+    leftPaneWidth:
+      defaultData.leftPaneWidth,
+
+    rightPaneWidth:
+      defaultData.rightPaneWidth,
+
+    lastReferenceId:
+      referenceId,
+
+    lastWorkId:
+      sampleWorks[0]?.id ?? null,
+
+    migrationVersion: 1
+  });
+
+  return normalizeLoadedData({
+    folders:
+      sampleReference.folders,
+
+    basePages:
+      sampleReference.pages,
+
+    works:
+      sampleWorks,
+
+    leftPaneWidth:
+      defaultData.leftPaneWidth,
+
+    rightPaneWidth:
+      defaultData.rightPaneWidth,
+
+    lastWorkId:
+      sampleWorks[0]?.id ?? null,
+
+    migrationVersion: 1,
+
+    currentReferenceId:
+      referenceId,
+
+    currentReferenceTitle:
+      sampleReference.title,
+
+    referenceIndex:
+      initialReferenceIndex,
+
+    workIndex:
+      initialWorkIndex
+  });
+}
+
 //localStorageにあるデータを読み込む
 // 保存データを読み込む
 // 新方式があれば新方式を優先し、なければ旧方式へ戻る
@@ -976,6 +1154,23 @@ async function loadData() {
   const oldAppData =
     loadAppData();
 
+  // 新旧どちらの保存データも存在しない場合だけ、
+// 初回起動用のサンプルデータを新形式で作成する
+const isCompletelyNew =
+  !referenceData &&
+  !workData &&
+  !oldAppData &&
+  !referenceIndex &&
+  !workIndex;
+
+if (isCompletelyNew) {
+  console.log(
+    "初回起動用のサンプルデータを作成します。"
+  );
+
+  return createInitialSampleData();
+}
+
   return normalizeLoadedData({
     folders:
       referenceData?.folders ??
@@ -1017,6 +1212,8 @@ async function loadData() {
     referenceIndex: null,
     workIndex: null
   });
+
+  
 }
 
 // 新旧どちらから読んでも、画面が扱える形へデータを補う
