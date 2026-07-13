@@ -358,8 +358,9 @@ let timelineViewMode = "detail";
 // 辞書本文の行下に出す一時メニュー
 let activeLineMenu = null;
 
-//ユーザーデータ用
-const userData = loadUserData();
+// ユーザーデータはElectronから非同期で読み込むため、完了を待つ
+const userData =
+  await loadUserData();
 
 let activityDisplayMonth = new Date();
 
@@ -1067,6 +1068,10 @@ function createInitialSampleData() {
 // 保存データを読み込む
 // 新方式があれば新方式を優先し、なければ旧方式へ戻る
 async function loadData() {
+  // 起動時のデータ読み込み時間を計測する
+  console.time(
+    "Fanfic Studio: loadData"
+  );
   const appSettings =
     await loadAppSettings();
 
@@ -1101,17 +1106,34 @@ async function loadData() {
         currentReferenceId
       );
 
-    // indexに登録されている作品本体を読み込む
-    const loadedWorks = [];
+// indexに登録されている作品本体を、
+// 1件ずつ待たずに同時に読み込み始める
+console.time(
+  "Fanfic Studio: 全作品読み込み"
+);
 
-    for (const workItem of workIndex?.works ?? []) {
-      const work =
-        await loadWorkById(workItem.id);
-
-      if (work) {
-        loadedWorks.push(work);
+const loadedWorkResults =
+  await Promise.all(
+    (workIndex?.works ?? []).map(
+      (workItem) => {
+        return loadWorkById(
+          workItem.id
+        );
       }
+    )
+  );
+
+// 読み込み失敗などでnullだった作品を除外する
+const loadedWorks =
+  loadedWorkResults.filter(
+    (work) => {
+      return work !== null;
     }
+  );
+
+console.timeEnd(
+  "Fanfic Studio: 全作品読み込み"
+);
 
     return normalizeLoadedData({
       folders:
@@ -1774,30 +1796,49 @@ function updateLastSavedAt() {
     `最終保存：${now.toLocaleTimeString()}`;
 }
 
-function loadUserData() {
-  const parsedUserData = loadAppUserData();
+// 執筆ログ・プロフィール・実績などを読み込む
+async function loadUserData() {
+  const parsedUserData =
+    await loadAppUserData();
 
   if (!parsedUserData) {
-    return structuredClone(defaultUserData);
+    return structuredClone(
+      defaultUserData
+    );
   }
 
   return {
-    ...structuredClone(defaultUserData),
+    ...structuredClone(
+      defaultUserData
+    ),
+
     ...parsedUserData,
+
     profile: {
       ...defaultUserData.profile,
       ...parsedUserData.profile
     },
+
     stats: {
       ...defaultUserData.stats,
       ...parsedUserData.stats
     },
+
     settings: {
       ...defaultUserData.settings,
       ...parsedUserData.settings
-    }
+    },
+
+    // 古いデータにwritingLogsがなければ空配列を使う
+    writingLogs:
+      Array.isArray(
+        parsedUserData.writingLogs
+      )
+        ? parsedUserData.writingLogs
+        : []
   };
 }
+
 
 function saveUserData() {
   saveAppUserData(userData);

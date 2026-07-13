@@ -364,7 +364,21 @@ export function saveAppUserData(userDataToSave) {
   }
 }
 
-export function loadAppUserData() {
+// 執筆ログやプロフィールなどのユーザーデータを読み込む
+export async function loadAppUserData() {
+  if (isElectronAvailable()) {
+    const electronData =
+      await electronStorageLoad(
+        STORAGE_FILES.userData
+      );
+
+    // Electron側に保存済みデータがあれば、それを優先する
+    if (electronData) {
+      return electronData;
+    }
+  }
+
+  // ブラウザ版や旧データの救済としてlocalStorageも確認する
   return browserStorageLoad(
     STORAGE_KEYS.userData
   );
