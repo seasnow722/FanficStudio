@@ -1490,6 +1490,7 @@ body {
   font-size: 14px;
 }
 
+/*
 .timeline-layout {
   flex: 1;
   min-height: 0;
@@ -1497,6 +1498,7 @@ body {
   grid-template-columns: 240px 32px 1fr;
   gap: 8px;
 }
+*/
 
 .timeline-side-panel {
   min-height: 0;
@@ -1804,6 +1806,7 @@ body {
     color:white;
 }
 
+/*
 #timeline-detail-layout.list-collapsed {
   grid-template-columns: 32px minmax(0, 1fr);
 }
@@ -1820,6 +1823,7 @@ body {
   grid-column: 2;
   min-width: 0;
 }
+*/
 
 .timeline-overview-panel {
   flex: 1;
@@ -1864,6 +1868,7 @@ body {
   color: #333;
 }
 
+/*
 #timeline-detail-layout.list-collapsed {
   grid-template-columns: 32px minmax(0, 1fr) !important;
 }
@@ -1881,6 +1886,7 @@ body {
   width: auto !important;
   min-width: 0;
 }
+*/
 
 .timeline-overview-info{
     margin-top:10px;
@@ -2516,4 +2522,484 @@ body.is-resizing * {
   color: #777;
 
   cursor: pointer;
+}
+
+/* 右ペイン上部の切替タブ */
+.right-tabs {
+  display: flex;
+  gap: 4px;
+
+  padding: 8px;
+
+  border-bottom:
+    1px solid #d8c8b4;
+}
+
+/* 右ペインの切替ボタン */
+.right-tab {
+  flex: 1;
+
+  padding: 7px 6px;
+
+  border:
+    1px solid transparent;
+  border-radius: 6px;
+
+  background: transparent;
+
+  cursor: pointer;
+}
+
+/* 現在開いている右タブ */
+.right-tab.active {
+  border-color: #cbb89e;
+  background: #f3eadf;
+  font-weight: bold;
+}
+
+/* 右タブの各内容 */
+.right-tab-panel {
+  min-width: 0;
+  height: 100%;
+
+  overflow: auto;
+}
+
+/* 右ペイン自体を縦並びにする */
+.detail {
+  display: flex;
+  flex-direction: column;
+
+  min-width: 0;
+  min-height: 0;
+
+  overflow: hidden;
+}
+
+/* =================================
+   右ペイン：時系列
+================================= */
+
+/* 時系列パネル全体を縦に並べる */
+#timeline-panel {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+
+  overflow: hidden;
+}
+
+/* 上段：タイトルと操作ボタン */
+.timeline-right-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+
+  flex-shrink: 0;
+
+  padding: 8px 10px;
+
+  border-bottom: 1px solid #d8c8b4;
+}
+
+.timeline-right-header h2 {
+  margin: 0;
+
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+/* 詳細・全体・追加ボタンを一列にする */
+#timeline-panel .timeline-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  margin: 0;
+}
+
+/* 右ペインではボタンを小さめにする */
+#timeline-panel .timeline-view-button,
+#timeline-panel .timeline-add-button {
+  min-width: 0;
+  padding: 5px 8px;
+
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+#timeline-panel .timeline-add-button {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* 詳細表示時の中段＋下段 */
+#timeline-detail-layout {
+  display: grid;
+
+  /* 上：一覧、下：詳細 */
+  grid-template-rows:
+    minmax(100px, 28vh)
+    minmax(0, 1fr);
+
+  min-width: 0;
+  min-height: 0;
+  height: calc(100% - 45px);
+
+  overflow: hidden;
+}
+
+/* 中段：イベント一覧 */
+.timeline-right-list-area {
+  display: flex;
+  flex-direction: column;
+
+  min-width: 0;
+  min-height: 0;
+
+  border-bottom: 1px solid #d8c8b4;
+
+  overflow: hidden;
+}
+
+.timeline-right-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  flex-shrink: 0;
+
+  padding: 5px 8px;
+
+  background: #f7f1e8;
+
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.timeline-list-toggle {
+  padding: 2px 6px;
+
+  border: 0;
+  background: transparent;
+
+  cursor: pointer;
+}
+
+/* イベント名一覧だけをスクロール可能にする */
+#timeline-list {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* 一覧ボタンを右ペイン向けに小さくする */
+#timeline-panel .timeline-list-button {
+  display: block;
+
+  width: 100%;
+  padding: 6px 8px;
+
+  overflow: hidden;
+
+  border: 0;
+  border-bottom: 1px solid #eee4d8;
+
+  background: transparent;
+
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  cursor: pointer;
+}
+
+#timeline-panel .timeline-list-button:hover {
+  background: #f7efe3;
+}
+
+#timeline-panel .timeline-list-button.active {
+  background: #eadbc8;
+  font-weight: bold;
+}
+
+/* 下段：イベント詳細 */
+.timeline-right-detail {
+  min-width: 0;
+  min-height: 0;
+
+  padding: 10px;
+
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* 詳細内のタイトル入力 */
+#timeline-panel .timeline-title {
+  box-sizing: border-box;
+
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+/* 時系列本文CodeMirror */
+#timeline-panel #timeline-editor {
+  min-width: 0;
+  margin-bottom: 12px;
+}
+
+#timeline-panel #timeline-editor .cm-editor {
+  min-height: 160px;
+}
+
+/* 全体表示も右ペイン内でスクロールする */
+.timeline-right-overview {
+  height: calc(100% - 45px);
+  padding: 8px;
+
+  overflow-y: auto;
+}
+
+/* イベント一覧を閉じた状態 */
+#timeline-detail-layout.list-collapsed {
+  grid-template-rows:
+    auto
+    minmax(0, 1fr);
+}
+
+/* 見出しだけ残して、一覧本文を隠す */
+#timeline-detail-layout.list-collapsed
+#timeline-list {
+  display: none;
+}
+
+/* 右ペイン内では関連項目を縦にも折り返す */
+#timeline-panel .related-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+#timeline-panel .related-chip {
+  max-width: 100%;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* =================================
+   右ペイン時系列：縦型レイアウトを強制
+================================= */
+
+#timeline-detail-layout {
+  display: grid;
+
+  /* 横方向は常に1列だけ */
+  grid-template-columns:
+    minmax(0, 1fr);
+
+  /* 上が一覧、下が詳細 */
+  grid-template-rows:
+    minmax(100px, 28vh)
+    minmax(0, 1fr);
+
+  width: 100%;
+  min-width: 0;
+}
+
+/* 一覧を閉じた場合も横幅は狭めない */
+#timeline-detail-layout.list-collapsed {
+  grid-template-columns:
+    minmax(0, 1fr);
+
+  grid-template-rows:
+    auto
+    minmax(0, 1fr);
+}
+
+/* 一覧エリアは必ず右ペイン幅いっぱい使う */
+.timeline-right-list-area {
+  width: 100%;
+  min-width: 0;
+}
+
+/* 「イベント一覧 ▲」を横一列に保つ */
+.timeline-right-list-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+
+  padding: 6px 10px;
+
+  writing-mode: horizontal-tb;
+  white-space: nowrap;
+}
+
+/* 開閉ボタンを押しやすくする */
+.timeline-list-toggle {
+  flex: 0 0 auto;
+
+  min-width: 32px;
+  min-height: 28px;
+  padding: 3px 8px;
+
+  border: 1px solid #d8c8b4;
+  border-radius: 5px;
+
+  background: #fffaf4;
+
+  cursor: pointer;
+}
+
+/* 一覧を閉じた時は、一覧本文だけ消す */
+#timeline-detail-layout.list-collapsed
+#timeline-list {
+  display: none;
+}
+
+/* =================================
+   辞書本文：行間Widgetの操作性改善
+================================= */
+
+/*
+  行間Widgetの空白部分が、
+  CodeMirror本文のクリックやドラッグを奪わないようにする
+*/
+#dictionary-editor
+.cm-line-action-widget {
+  pointer-events: none;
+
+  display: flex;
+  justify-content: flex-end;
+
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 12px;
+
+  padding-right: 6px;
+}
+
+/*
+  ＋ボタンそのものだけはクリック可能に戻す
+*/
+#dictionary-editor
+.cm-line-action-button {
+  pointer-events: auto;
+
+  opacity: 0.18;
+
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease;
+}
+
+/* ボタンへマウスを置いた時は、はっきり表示する */
+#dictionary-editor
+.cm-line-action-button:hover,
+#dictionary-editor
+.cm-line-action-button:focus-visible {
+  opacity: 1;
+}
+
+/*
+  出典・注釈Widgetも、箱の外側の余白では
+  本文のマウス操作を邪魔しない
+*/
+#dictionary-editor
+.cm-source-widget,
+#dictionary-editor
+.cm-annotation-widget {
+  pointer-events: none;
+}
+
+/*
+  表示本文と操作ボタンは触れるように戻す
+*/
+#dictionary-editor
+.cm-source-body,
+#dictionary-editor
+.cm-source-actions,
+#dictionary-editor
+.cm-annotation-body,
+#dictionary-editor
+.cm-annotation-actions {
+  pointer-events: auto;
+}
+
+/* 大見出し */
+#dictionary-editor
+.cm-dictionary-heading-toggle[
+  data-heading-level="1"
+] {
+  font-size: 1.05em;
+}
+
+/* 中見出し */
+#dictionary-editor
+.cm-dictionary-heading-toggle[
+  data-heading-level="2"
+] {
+  font-size: 0.95em;
+}
+
+/* 小見出し以下 */
+#dictionary-editor
+.cm-dictionary-heading-toggle[
+  data-heading-level="3"
+],
+#dictionary-editor
+.cm-dictionary-heading-toggle[
+  data-heading-level="4"
+],
+#dictionary-editor
+.cm-dictionary-heading-toggle[
+  data-heading-level="5"
+],
+#dictionary-editor
+.cm-dictionary-heading-toggle[
+  data-heading-level="6"
+] {
+  font-size: 0.9em;
+}
+
+/* 辞書見出しの階層インデント */
+#dictionary-editor
+.cm-dictionary-heading-toggle[
+  data-heading-level="2"
+] {
+  margin-left: 16px;
+}
+
+#dictionary-editor
+.cm-dictionary-heading-toggle[
+  data-heading-level="3"
+] {
+  margin-left: 32px;
+}
+
+#dictionary-editor
+.cm-dictionary-heading-toggle[
+  data-heading-level="4"
+] {
+  margin-left: 48px;
+}
+
+#dictionary-editor
+.cm-dictionary-heading-toggle[
+  data-heading-level="5"
+] {
+  margin-left: 64px;
+}
+
+#dictionary-editor
+.cm-dictionary-heading-toggle[
+  data-heading-level="6"
+] {
+  margin-left: 80px;
 }

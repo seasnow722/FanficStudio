@@ -323,6 +323,11 @@ if (currentWorkId) {
 // novel / timeline / relation / flags のどれか
 let currentMainTab = "novel";
 
+// 現在右ペインで開いている資料
+// dictionary / timeline / flags のどれか
+let currentRightTab =
+  "dictionary";
+
 let currentEventId = null;
 
 let focusFlagId = null;
@@ -429,6 +434,18 @@ const searchInput = document.getElementById("search-input");
 
 const mainTabs = document.querySelectorAll(".main-tab");
 const tabPanels = document.querySelectorAll(".tab-panel");
+
+// 右ペインの「辞書・時系列・TODO」切替タブ
+const rightTabs =
+  document.querySelectorAll(
+    ".right-tab"
+  );
+
+// 右ペイン内の切替対象パネル
+const rightTabPanels =
+  document.querySelectorAll(
+    ".right-tab-panel"
+  );
 
 const timelineList = document.getElementById("timeline-list");
 
@@ -2170,6 +2187,12 @@ function showPage(pageId) {
 
   if (!page) return;
 
+  // 辞書ページを選んだので、
+  // 右ペインも辞書表示へ切り替える
+  switchRightTab(
+    "dictionary"
+  );
+
   // 今選んでいる辞書ページIDを更新する
   currentPageId = pageId;
   // 右側のサイドビューに辞書ページの内容を表示する
@@ -3461,7 +3484,9 @@ function renderFlags() {
         currentEventId = chip.dataset.eventId;
         timelineViewMode = "detail";
 
-        switchMainTab("timeline");
+        switchRightTab(
+          "timeline"
+        );
 
         detailButton.classList.add("active");
         overviewButton.classList.remove("active");
@@ -3551,14 +3576,6 @@ function switchMainTab(tabName) {
   }
 
   //タブごとに、必要な内容だけ再描画する
-  if (tabName === "timeline") {
-    renderTimeline();
-  }
-
-  if (tabName === "flags") {
-    renderFlags();
-  }
-
   if (tabName === "progress") {
   updateWritingStats();
   }
@@ -3568,6 +3585,70 @@ function switchMainTab(tabName) {
   }
 }
 
+// 右ペインの辞書・時系列・TODOを切り替える
+function switchRightTab(
+  tabName
+) {
+  currentRightTab =
+    tabName;
+
+  // 右タブの選択表示を解除する
+  rightTabs.forEach(
+    (tab) => {
+      tab.classList.remove(
+        "active"
+      );
+    }
+  );
+
+  // 押された右タブを選択状態にする
+  const activeTab =
+    document.querySelector(
+      `[data-right-tab="${tabName}"]`
+    );
+
+  if (activeTab) {
+    activeTab.classList.add(
+      "active"
+    );
+  }
+
+  // 右の全パネルを一旦隠す
+  rightTabPanels.forEach(
+    (panel) => {
+      panel.classList.add(
+        "hidden"
+      );
+    }
+  );
+
+  // 選ばれた右パネルだけ表示する
+  const panelId =
+    tabName === "dictionary"
+      ? "right-dictionary-panel"
+      : `${tabName}-panel`;
+
+  const targetPanel =
+    document.getElementById(
+      panelId
+    );
+
+  if (targetPanel) {
+    targetPanel.classList.remove(
+      "hidden"
+    );
+  }
+
+  // パネルを開いた時点で、
+  // 最新データを描画する
+  if (tabName === "timeline") {
+    renderTimeline();
+  }
+
+  if (tabName === "flags") {
+    renderFlags();
+  }
+}
 
 // 現在の中央タブに合わせて、上部メニューのボタン表示を切り替える
 function updatePaneMenu() {
@@ -4334,7 +4415,9 @@ titleRow.appendChild(editButton);
 
   if (flagButton) {
     focusFlagId = flagButton.dataset.flagId;
-    switchMainTab("flags");
+    switchRightTab(
+      "flags"
+    );
     return;
   }
 });
@@ -5048,6 +5131,18 @@ mainTabs.forEach((tab) => {
   tab.addEventListener("click", () => {
     switchMainTab(tab.dataset.tab);
   });
+});
+
+// 右ペインのタブ切替
+rightTabs.forEach((tab) => {
+  tab.addEventListener(
+    "click",
+    () => {
+      switchRightTab(
+        tab.dataset.rightTab
+      );
+    }
+  );
 });
 
 //時系列イベント作成ボタン
@@ -5793,22 +5888,30 @@ function setupProgressEvents() {
 }
 
 //開閉ボタン
-toggleTimelineSideButton.addEventListener("click", () => {
-  timelinePanel.classList.toggle("timeline-side-collapsed");
+// 右ペインのイベント一覧を上下に開閉する
+toggleTimelineSideButton.addEventListener(
+  "click",
+  () => {
+    timelineDetailLayout.classList.toggle(
+      "list-collapsed"
+    );
 
-  if (timelinePanel.classList.contains("timeline-side-collapsed")) {
+    const isCollapsed =
+      timelineDetailLayout.classList.contains(
+        "list-collapsed"
+      );
 
-    timelineDetailLayout.classList.add("list-collapsed");
+    toggleTimelineSideButton.textContent =
+      isCollapsed
+        ? "▼"
+        : "▲";
 
-    toggleTimelineSideButton.textContent = "▶";
-
-  } else {
-
-    timelineDetailLayout.classList.remove("list-collapsed");
-
-    toggleTimelineSideButton.textContent = "◀";
+    toggleTimelineSideButton.title =
+      isCollapsed
+        ? "イベント一覧を開く"
+        : "イベント一覧を閉じる";
   }
-});
+);
 
 const detailButton =
 document.getElementById("timeline-detail-view-button");
@@ -6286,7 +6389,8 @@ class DictionaryHeadingToggleWidget
 
   constructor(
     lineFrom,
-    isFolded
+    isFolded,
+    headingLevel
   ) {
     super();
 
@@ -6295,18 +6399,23 @@ class DictionaryHeadingToggleWidget
 
     this.isFolded =
       isFolded;
+
+    this.headingLevel =
+      headingLevel;
   }
 
   // 前回と同じ見た目なら、
   // CodeMirrorがDOMを作り直さず再利用できる
-  eq(other) {
-    return (
-      other.lineFrom ===
-        this.lineFrom &&
-      other.isFolded ===
-        this.isFolded
-    );
-  }
+eq(other) {
+  return (
+    other.lineFrom ===
+      this.lineFrom &&
+    other.isFolded ===
+      this.isFolded &&
+    other.headingLevel ===
+      this.headingLevel
+  );
+}
 
   toDOM(view) {
     const toggle =
@@ -6316,6 +6425,12 @@ class DictionaryHeadingToggleWidget
 
     toggle.className =
       "cm-dictionary-heading-toggle";
+
+    // CSSから見出し階層を判別できるようにする
+    toggle.dataset.headingLevel =
+      String(
+        this.headingLevel
+      );
 
     toggle.textContent =
       this.isFolded
@@ -6381,9 +6496,9 @@ function buildDictionaryHeadingDecorations(
       );
 
     const headingMatch =
-      line.text.match(
-        /^#\s+/
-      );
+    line.text.match(
+      /^(#{1,6})\s+/
+    );
 
     // 「# 半角スペース」で始まる行だけ対象
     if (!headingMatch) {
@@ -6417,7 +6532,8 @@ function buildDictionaryHeadingDecorations(
         widget:
           new DictionaryHeadingToggleWidget(
             line.from,
-            isFolded
+            isFolded,
+            headingMatch[1].length
           ),
 
         // Widgetの前後へ入力した文字を
@@ -6439,6 +6555,8 @@ function buildDictionaryHeadingDecorations(
 
 // 「# 見出し」から次の「# 見出し」の直前までを、
 // 折りたたみ可能な範囲としてCodeMirrorへ伝える
+// Markdown風の見出し階層に合わせて、
+// 現在の見出しより下位の範囲を折りたたむ
 function dictionaryHeadingFoldService(
   state,
   lineStart,
@@ -6447,17 +6565,29 @@ function dictionaryHeadingFoldService(
   const headingLine =
     state.doc.lineAt(lineStart);
 
-  // 行頭が「# 半角スペース」でなければ見出しではない
-  if (!/^#\s+/.test(headingLine.text)) {
+  // # ～ ###### の見出しに対応する
+  // 例：
+  // # 大見出し
+  // ## 中見出し
+  // ### 小見出し
+  const headingMatch =
+    headingLine.text.match(
+      /^(#{1,6})\s+/
+    );
+
+  if (!headingMatch) {
     return null;
   }
 
-  // 初期値は文書の最後。
-  // 次の見出しがなければ、ページ末尾まで折りたたむ。
+  // # の個数が見出しレベル
+  const currentLevel =
+    headingMatch[1].length;
+
+  // 次の「同じ階層または上位階層」の
+  // 見出し直前までを閉じる
   let foldTo =
     state.doc.length;
 
-  // 今の見出しより後ろの行を、順番に調べる
   for (
     let lineNumber =
       headingLine.number + 1;
@@ -6467,10 +6597,33 @@ function dictionaryHeadingFoldService(
     lineNumber++
   ) {
     const nextLine =
-      state.doc.line(lineNumber);
+      state.doc.line(
+        lineNumber
+      );
 
-    // 次の見出しを発見したら、その直前までにする
-    if (/^#\s+/.test(nextLine.text)) {
+    const nextHeadingMatch =
+      nextLine.text.match(
+        /^(#{1,6})\s+/
+      );
+
+    // 普通の本文なら、そのまま次へ進む
+    if (!nextHeadingMatch) {
+      continue;
+    }
+
+    const nextLevel =
+      nextHeadingMatch[1].length;
+
+    /*
+      現在が ## の場合：
+
+      ### は配下なので閉じる
+      ##  は同階層なので、そこで終了
+      #   は上位階層なので、そこで終了
+    */
+    if (
+      nextLevel <= currentLevel
+    ) {
       foldTo =
         nextLine.from - 1;
 
@@ -6478,18 +6631,22 @@ function dictionaryHeadingFoldService(
     }
   }
 
-  // 見出しの直後に本文がない場合は、
-  // 折りたたむ範囲が存在しない
-  if (foldTo <= headingLine.to) {
+  // 見出しの下に閉じられる内容がなければ、
+  // 折りたたみ対象にしない
+  if (
+    foldTo <= headingLine.to
+  ) {
     return null;
   }
 
   return {
-    // 見出し行自体は残す
-    from: headingLine.to,
+    // 見出し行そのものは表示したまま
+    from:
+      headingLine.to,
 
-    // 次の見出し直前、または文書末尾まで隠す
-    to: foldTo
+    // 配下の本文・下位見出しだけ隠す
+    to:
+      foldTo
   };
 }
 

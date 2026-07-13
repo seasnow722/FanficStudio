@@ -278,14 +278,28 @@
 
 <section class="main-page">
 
-  <div class="main-tabs">
-    <button class="main-tab active" data-tab="novel">本文</button>
-    <button class="main-tab" data-tab="timeline">時系列</button>
-    <button class="main-tab" data-tab="relation">相関図</button>
-    <button class="main-tab" data-tab="flags">フラグ</button>
-    <button class="main-tab" data-tab="progress">進捗</button>
-    <button class="main-tab" data-tab="profile">執筆プロフィール</button>
-  </div>
+<div class="main-tabs">
+  <button
+    class="main-tab active"
+    data-tab="novel"
+  >
+    本文
+  </button>
+
+  <button
+    class="main-tab"
+    data-tab="progress"
+  >
+    進捗
+  </button>
+
+  <button
+    class="main-tab"
+    data-tab="profile"
+  >
+    執筆プロフィール
+  </button>
+</div>
 
   <div id="novel-panel" class="tab-panel">
   <div class="novel-panel-actions">
@@ -437,81 +451,151 @@
   </section>
 </div>
 
-
-  <div id="timeline-panel" class="tab-panel hidden">
-  <h2>時系列</h2>
-
-<div class="timeline-toolbar">
-
-  <button
-    id="timeline-detail-view-button"
-    class="timeline-view-button active"
-  >
-    詳細表示
-  </button>
-
-  <button
-    id="timeline-overview-view-button"
-    class="timeline-view-button"
-  >
-    全体表示
-  </button>
-
-  <button
-    id="new-event-button"
-    class="new-page-button"
-  >
-    ＋ イベント追加
-  </button>
-
-</div>
-
-  <div id="timeline-detail-layout" class="timeline-layout">
-    <aside id="timeline-side-panel" class="timeline-side-panel">
-      <div id="timeline-list"></div>
-    </aside>
-
-    <button
-      id="toggle-timeline-side-button"
-      class="timeline-side-toggle"
-      title="時系列リストを開閉"
-    >
-      ◀
-    </button>
-
-    <section id="timeline-detail-panel" class="timeline-detail-panel">
-      <p class="empty-message">左のイベントを選択してください。</p>
-    </section>
-  </div>
-    <div id="timeline-overview-panel" class="timeline-overview-panel hidden"></div>
-</div>
-
-  <div id="relation-panel" class="tab-panel hidden">
-    <h2>相関図</h2>
-    <p>ここに相関図機能を作ります。</p>
-  </div>
-
-  <div id="flags-panel" class="tab-panel hidden">
-    <h2>フラグ管理</h2>
-
-    <button id="new-flag-button" class="new-page-button">＋ フラグ追加</button>
-    <div id="flag-list"></div>
-</div></section>
+</section>
 
 <div id="right-resizer"></div>
 
 <aside class="detail">
-  <div class="pane-menu">
-  <button
-    id="delete-page-button"
-    class="icon-delete-button"
-    title="この辞書ページを削除"
->
-    🗑
-  </button>
+
+  <!-- 右ペインで表示する資料を切り替えるタブ -->
+  <div class="right-tabs">
+    <button
+      class="right-tab active"
+      data-right-tab="dictionary"
+    >
+      辞書
+    </button>
+
+    <button
+      class="right-tab"
+      data-right-tab="timeline"
+    >
+      時系列
+    </button>
+
+    <button
+      class="right-tab"
+      data-right-tab="flags"
+    >
+      TODO
+    </button>
   </div>
 
-  <div id="side-info">左の項目をクリックしてください。</div>
+  <!-- 辞書パネル -->
+  <section
+    id="right-dictionary-panel"
+    class="right-tab-panel"
+  >
+    <div class="pane-menu">
+      <button
+        id="delete-page-button"
+        class="icon-delete-button"
+        title="この辞書ページを削除"
+      >
+        🗑
+      </button>
+    </div>
+
+    <div id="side-info">
+      左の項目をクリックしてください。
+    </div>
+  </section>
+
+  <!-- 時系列パネル -->
+<!-- 右ペイン：時系列 -->
+<section
+  id="timeline-panel"
+  class="right-tab-panel hidden"
+>
+  <!-- 上段：タイトルと操作ボタン -->
+  <div class="timeline-right-header">
+    <h2>時系列</h2>
+
+    <div class="timeline-toolbar">
+      <button
+        id="timeline-detail-view-button"
+        class="timeline-view-button active"
+      >
+        詳細
+      </button>
+
+      <button
+        id="timeline-overview-view-button"
+        class="timeline-view-button"
+      >
+        全体
+      </button>
+
+      <button
+        id="new-event-button"
+        class="timeline-add-button"
+        title="イベントを追加"
+      >
+        ＋
+      </button>
+    </div>
+  </div>
+
+  <!-- 詳細表示 -->
+  <div
+    id="timeline-detail-layout"
+    class="timeline-right-layout"
+  >
+    <!-- 中段：イベント名だけの一覧 -->
+    <section class="timeline-right-list-area">
+      <div class="timeline-right-list-header">
+        <span>イベント一覧</span>
+
+        <button
+          id="toggle-timeline-side-button"
+          class="timeline-list-toggle"
+          title="イベント一覧を開閉"
+        >
+          ▲
+        </button>
+      </div>
+
+      <div
+        id="timeline-list"
+        class="timeline-right-list"
+      ></div>
+    </section>
+
+    <!-- 下段：選択イベントの詳細 -->
+    <section
+      id="timeline-detail-panel"
+      class="timeline-detail-panel timeline-right-detail"
+    >
+      <p class="empty-message">
+        上の一覧からイベントを選択してください。
+      </p>
+    </section>
+  </div>
+
+  <!-- 全体表示 -->
+  <div
+    id="timeline-overview-panel"
+    class="timeline-overview-panel timeline-right-overview hidden"
+  ></div>
+</section>
+
+  <!-- TODO・作者メモパネル -->
+  <section
+    id="flags-panel"
+    class="right-tab-panel hidden"
+  >
+    <h2>TODO・作者メモ</h2>
+
+    <button
+      id="new-flag-button"
+      class="new-page-button"
+    >
+      ＋ TODO追加
+    </button>
+
+    <div id="flag-list"></div>
+  </section>
+
 </aside>
   </main>
 </div>
