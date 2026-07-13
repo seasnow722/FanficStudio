@@ -1,4 +1,5 @@
 // ==============================
+// script.js
 // 目次
 // 1. サンプルデータ
 // 2. データ読み込み・現在状態
@@ -16,11 +17,48 @@
 
 // codemirrorのEditorViewを持ってくる
 import { EditorView } from "codemirror";
-import { undo, redo } from "@codemirror/commands";
-import {  Decoration,  WidgetType } from "@codemirror/view";
+import { undo, redo, history, historyKeymap } from "@codemirror/commands";
+import { Decoration, WidgetType, keymap } from "@codemirror/view";
+import Chart from "chart.js/auto";
+import {
+  // 旧形式の読み込み
+  // 0.7.x以前のデータ移行に使うため、load側だけ残す
+  loadReferenceData,
+  loadWorkData,
+
+  // 新方式：index
+  saveReferenceIndex,
+  loadReferenceIndex,
+  saveWorkIndex,
+  loadWorkIndex,
+
+  // 新方式：個別データ
+  saveReferenceById,
+  loadReferenceById,
+  saveWorkById,
+  loadWorkById,
+
+  saveAppSettings,
+  loadAppSettings,
+
+  loadAppData,
+
+  saveAppUserData,
+  loadAppUserData
+} from "./storage.js";
 
 // 小説本文用CodeMirror本体を入れる箱を先に作る
 let novelEditor = null;
+let writingChartInstance = null;
+
+import {
+  codeFolding,
+  foldedRanges,
+  foldKeymap,
+  foldService,
+  foldState,
+  toggleFold
+} from "@codemirror/language";
 
 
 // ==============================
@@ -51,9 +89,9 @@ const defaultData = {
 辞書本文では [[ルーク]] のように書くと、別の辞書ページへ移動できます。
 
 辞書本文の各行の下にある「＋」から、
-原作出典や作品注釈を追加できます。
+設定資料出典や作品注釈を追加できます。
 
-上部の「原作のみ / 原作＋作品注釈」ボタンで、
+上部の「設定資料のみ / 設定資料＋作品注釈」ボタンで、
 作品注釈の表示・非表示を切り替えられます。`,
       sources: [],
       lineIds: [
@@ -87,7 +125,7 @@ const defaultData = {
           id: "source-magic-1",
           lineIndex: 0,
           lineId: "line-magic-1",
-          source: "サンプル原作：第1章"
+          source: "サンプル設定資料：第1章"
         }
       ],
       lineIds: [
@@ -114,7 +152,7 @@ const defaultData = {
           id: "source-luke-1",
           lineIndex: 0,
           lineId: "line-luke-1",
-          source: "サンプル原作：キャラクター紹介"
+          source: "サンプル設定資料：キャラクター紹介"
         }
       ],
       lineIds: [
@@ -183,7 +221,7 @@ const defaultData = {
           pageId: "magic",
           lineIndex: 2,
           lineId: "line-magic-3",
-          body: "原作では苦手意識程度だが、この作品ではトラウマ寄りに変更予定。"
+          body: "設定資料では苦手意識程度だが、この作品ではトラウマ寄りに変更予定。"
         }
       ]
     }
@@ -193,32 +231,91 @@ const defaultData = {
   rightPaneWidth: 320
 };
 
+const defaultUserData = {
+  profile: {
+    name: "ユーザー"
+  },
+
+  stats: {
+    launchCount: 0,
+    totalWrittenChars: 0,
+    totalWritingTimeMinutes: 0
+  },
+
+  writingLogs: [],
+
+  achievements: [],
+
+  settings: {
+    showAchievements: true
+  }
+};
+
 
 // ==============================
 // 2. データ読み込み・現在状態
 // ==============================
+// 旧形式の保存データを確認する
+await migrateLegacyData();
+
 //localStorageに保存しているデータを読み込む
 //なければ上のデフォルトデータを読み込む
-const data = loadData();
+const data = await loadData();
 
 //dataで読み込んだフォルダ名、ページ名を保存する
 let folders = data.folders;
 let basePages = data.basePages;
 let works = data.works;
 
-//現在の作品、辞書、本文かを判断する
-let currentWorkId = works.length > 0 ? works[0].id : null;
+// 現在開いている設定資料
+let currentReferenceId =
+  data.currentReferenceId;
+
+let currentReferenceTitle =
+  data.currentReferenceTitle;
+
+// 起動画面用の軽量一覧
+let referenceIndex =
+  data.referenceIndex ?? {
+    referenceSets: []
+  };
+
+let workIndex =
+  data.workIndex ?? {
+    works: []
+  };
+
+// 起動時に、最初に作業する作品IDを決める。
+// 前回開いていた作品IDが保存されていて、今も存在するならそれを使う。
+// そうでなければ、作品一覧の先頭を使う。
+// 作品が1つもなければ null にする。
+let currentWorkId =
+  data.lastWorkId && works.some((work) => work.id === data.lastWorkId)
+    ? data.lastWorkId
+    : works.length > 0
+      ? works[0].id
+      : null;
+
+// 今どの辞書ページを開いているかを覚える。
+// 起動直後はまだ何も開いていないので null。
 let currentPageId = null;
+
+//今どの小説本文を開いているか（何話とか）を覚える
+// 起動直後はまだ何も開いていないので null。
 let currentNovelId = null;
 
 // 現在扱う辞書ページ一覧。
-// 今は原作辞書 basePages をそのまま使っている。
+// 今は設定資料辞書 basePages をそのまま使っている。
 let pages = basePages;
+
 // 現在の作品に属する小説本文一覧。
 // currentWorkId が決まったあとで getCurrentWork().novels を入れる。
+// これを更新しないと、前の作品の本文一覧が残ってしまう。
 let novels = [];
 
 if (currentWorkId) {
+  // currentWorkId に対応する作品の本文一覧を取り出す。
+  // これをしないと「今の作品」と「表示する本文一覧」がつながらない。
   novels = getCurrentWork().novels;
   }
 
@@ -226,22 +323,68 @@ if (currentWorkId) {
 // novel / timeline / relation / flags のどれか
 let currentMainTab = "novel";
 
+// 現在右ペインで開いている資料
+// dictionary / timeline / flags のどれか
+let currentRightTab =
+  "dictionary";
+
+let currentEventId = null;
+
+let focusFlagId = null;
+
+let currentReceiptDateKey = null;
+
+// 小説本文一覧が開いているかどうか。
+// trueなら表示、falseなら折りたたむ。
+let isNovelListOpen = true;
+
 // 辞書ページの表示モード
-// "base" = 原作のみ
-// "overlay" = 原作 + 現在の作品注釈
+// "base" = 設定資料のみ
+// "overlay" = 設定資料 + 現在の作品注釈
 let dictionaryLayerMode = "base";
 
 //ページの幅
 let leftPaneWidth = data.leftPaneWidth;
 let rightPaneWidth = data.rightPaneWidth;
 
+// 保存形式の移行がどこまで済んでいるか
+let migrationVersion =
+  data.migrationVersion ?? 0;
+
 //辞書用codemirror本体
 let dictionaryEditor = null;
 //今編集している辞書
 let currentDictionaryPage = null;
+//辞書本文codemirror化
+let timelineEditor = null;
+let currentTimelineEvent = null;
+let timelineViewMode = "detail";
 
 // 辞書本文の行下に出す一時メニュー
 let activeLineMenu = null;
+
+// ユーザーデータはElectronから非同期で読み込むため、完了を待つ
+const userData =
+  await loadUserData();
+
+let activityDisplayMonth = new Date();
+
+
+
+// 起動画面で選択中の作品ID。
+// まだ本体で作業する作品ではなく、右側に詳細表示するための一時的な選択。
+let selectedStartupWorkId = currentWorkId;
+
+// 起動画面で選択中の設定資料ID。
+// 選択中の作品が属する設定資料を優先する。
+// 作品がなければ、現在開いている設定資料や一覧の先頭を使う。
+let selectedStartupReferenceId =
+  works.find((work) => {
+    return work.id === selectedStartupWorkId;
+  })?.referenceSetId ??
+  currentReferenceId ??
+  referenceIndex.referenceSets[0]?.id ??
+  null;
 
 
 // ==============================
@@ -260,14 +403,30 @@ const sideInfo = document.getElementById("side-info");
 
 const pageList = document.getElementById("page-list");
 const newFolderButton = document.getElementById("new-folder-button");
+const newFolderMenu =
+  document.getElementById("new-folder-menu");
+
+const newBaseFolderButton =
+  document.getElementById("new-base-folder-button");
+
+const newWorkFolderButton =
+  document.getElementById("new-work-folder-button");
+
 const newPageButton = document.getElementById("new-page-button");
+const newPageMenu =
+  document.getElementById("new-page-menu");
+
+const newBasePageButton =
+  document.getElementById("new-base-page-button");
+
+const newWorkPageButton =
+  document.getElementById("new-work-page-button");
+
 const newNovelButton = document.getElementById("new-novel-button");
 
 const deletePageButton = document.getElementById("delete-page-button");
 const deleteNovelButton = document.getElementById("delete-novel-button");
 
-const importButton = document.getElementById("import-button");
-const exportButton = document.getElementById("export-button");
 const importBaseFile = document.getElementById("import-base-file");
 const importWorkFile = document.getElementById("import-work-file");
 
@@ -276,26 +435,43 @@ const searchInput = document.getElementById("search-input");
 const mainTabs = document.querySelectorAll(".main-tab");
 const tabPanels = document.querySelectorAll(".tab-panel");
 
+// 右ペインの「辞書・時系列・TODO」切替タブ
+const rightTabs =
+  document.querySelectorAll(
+    ".right-tab"
+  );
+
+// 右ペイン内の切替対象パネル
+const rightTabPanels =
+  document.querySelectorAll(
+    ".right-tab-panel"
+  );
+
 const timelineList = document.getElementById("timeline-list");
+
+const timelineDetailPanel =
+  document.getElementById("timeline-detail-panel");
+
+const toggleTimelineSideButton =
+  document.getElementById("toggle-timeline-side-button");
+
+const timelinePanel =
+  document.getElementById("timeline-panel");
 
 const newFlagButton = document.getElementById("new-flag-button");
 const flagList = document.getElementById("flag-list");
 
 const layerToggleButton = document.getElementById("layer-toggle-button");
 
-const importMenu = document.getElementById("import-menu");
-const exportMenu = document.getElementById("export-menu");
-
-const importBaseButton = document.getElementById("import-base-button");
-const importWorkButton = document.getElementById("import-work-button");
-const exportBaseButton = document.getElementById("export-base-button");
-const exportWorkButton = document.getElementById("export-work-button");
-
 //HTML要素取得
 const editorElement = document.getElementById("editor");
 
 //文字数カウント
 const novelCharCount = document.getElementById("novel-char-count");
+const currentNovelCharCount =
+  document.getElementById("current-novel-char-count");
+const totalWorkCharCount =
+  document.getElementById("total-work-char-count");
 
 // アンドゥリドゥボタンの要素
 const undoButton = document.getElementById("undo-button");
@@ -304,6 +480,8 @@ const redoButton = document.getElementById("redo-button");
 //保存状態表示用
 const saveStatus = document.getElementById("save-status");
 let saveStatusTimer = null;
+const lastSavedAt =
+  document.getElementById("last-saved-at");
 
 //左右画面閉じ開き
 const toggleLeftPaneButton = document.getElementById("toggle-left-pane-button");
@@ -322,98 +500,856 @@ const rightResizer =
 
 const sidebar = document.querySelector(".sidebar");
 
-//小説本文テキスト保存
-const exportCurrentNovelTextButton =
-  document.getElementById("export-current-novel-text-button");
-const exportAllNovelsTextButton =
-  document.getElementById("export-all-novels-text-button");
+//modal（ポップアップ）系
+const modalOverlay = document.getElementById("modal-overlay");
+const modalTitle = document.getElementById("modal-title");
+const modalBody = document.getElementById("modal-body");
+const modalOk = document.getElementById("modal-ok");
+const modalCancel = document.getElementById("modal-cancel");
+
+const novelCharList =
+  document.getElementById("novel-char-list");
+
+const writingChartRange =
+  document.getElementById("writing-chart-range");
+
+const timelineDetailLayout =
+  document.getElementById("timeline-detail-layout");
+
+const timelineOverviewPanel =
+  document.getElementById("timeline-overview-panel");
+
+const saveReceiptImageButton =
+  document.getElementById("save-receipt-image-button");
+
+const activityMonthLabel =
+  document.getElementById("activity-month-label");
+
+const activityPrevMonthButton =
+  document.getElementById("activity-prev-month-button");
+
+const activityNextMonthButton =
+  document.getElementById("activity-next-month-button");
+
+const activityReceipt =
+  document.getElementById("activity-receipt");
+
+const startupScreen =
+  document.getElementById("startup-screen");
+
+const appShell =
+  document.getElementById("app-shell");
+
+const openAppButton =
+  document.getElementById("open-app-button");
+
+const renameWorkButton =
+  document.getElementById("rename-work-button");
+
+const startupLastWorkTitle =
+  document.getElementById(
+    "startup-last-work-title"
+  );
+
+const continueWorkButton =
+  document.getElementById(
+    "continue-work-button"
+  );
+
+// 起動画面の設定資料一覧を表示する場所
+const startupReferenceList =
+  document.getElementById(
+    "startup-reference-list"
+  );
+
+// 新しい設定資料を作るボタン
+const newReferenceButton =
+  document.getElementById(
+    "new-reference-button"
+  );
+  
+// 起動画面に表示する作品一覧の置き場。
+// HTML側の #startup-work-list に、JSで作品ボタンを並べる。
+const startupWorkList =
+  document.getElementById(
+    "startup-work-list"
+  );
+
+const newWorkButton =
+  document.getElementById("new-work-button");
+
+const openStartupProfileButton =
+  document.getElementById("open-startup-profile-button");
+
+const startupWorkTotalChars =
+  document.getElementById("startup-work-total-chars");
+
+const startupWorkUpdatedAt =
+  document.getElementById("startup-work-updated-at");
+
+const appMenuButton =
+  document.getElementById("app-menu-button");
+
+const appMenu =
+  document.getElementById("app-menu");
+
+const backToStartupButton =
+  document.getElementById("back-to-startup-button");
+
+const appImportToggleButton =
+  document.getElementById("app-import-toggle-button");
+
+const appImportSection =
+  document.getElementById("app-import-section");
+
+const appExportToggleButton =
+  document.getElementById("app-export-toggle-button");
+
+const appExportSection =
+  document.getElementById("app-export-section");
+
+const appImportBaseButton =
+  document.getElementById("app-import-base-button");
+
+const appImportWorkButton =
+  document.getElementById("app-import-work-button");
+
+const appExportBaseButton =
+  document.getElementById("app-export-base-button");
+
+const appExportWorkButton =
+  document.getElementById("app-export-work-button");
+
+const appExportCurrentNovelTextButton =
+  document.getElementById("app-export-current-novel-text-button");
+
+const appExportAllNovelsTextButton =
+  document.getElementById("app-export-all-novels-text-button");
+
+const startupMenuButton =
+  document.getElementById("startup-menu-button");
+
+const startupMenu =
+  document.getElementById("startup-menu");
+
+const exportFullBackupButton =
+  document.getElementById("export-full-backup-button");
+
+const importFullBackupButton =
+  document.getElementById("import-full-backup-button");
+
+const importFullBackupFile =
+  document.getElementById("import-full-backup-file");
+
 
 
 // ==============================
 // 4. 汎用関数
 // ==============================
-//何か変更したときここで保存する
-function saveData() {
-  updateSaveStatus("🟡 保存中...", "saving");
+// 旧形式の保存データを、新しいindex＋個別JSON形式へコピーする
+async function migrateLegacyData() {
+  const appSettings =
+    await loadAppSettings();
 
-  localStorage.setItem(
-    "fanficStudioData",
-    JSON.stringify({
-      folders,
-      basePages,
-      works,
-      leftPaneWidth,
-      rightPaneWidth
-    })
+  // 一度移行済みなら、二重に実行しない
+  if (appSettings?.migrationVersion >= 1) {
+    console.log("保存データの移行は完了済みです。");
+    return;
+  }
+
+  // 今まで使っていた保存データを読み込む
+  const legacyReference =
+    await loadReferenceData();
+
+  const legacyWorks =
+    await loadWorkData();
+
+  // 旧設定資料がなければ移行対象なし
+  if (!legacyReference) {
+    console.log("移行対象の旧設定資料はありません。");
+    return;
+  }
+
+  const now =
+    new Date().toISOString();
+
+  // 設定資料には今まで専用IDがなかったため、
+  // 移行時に初めてIDを付ける
+  const referenceId =
+    createDataId("reference");
+
+  const migratedReference = {
+    id: referenceId,
+    title: "既存の設定資料",
+    folders:
+      legacyReference.folders ?? [],
+    pages:
+      legacyReference.basePages ?? [],
+    events: [],
+    flags: [],
+    updatedAt: now
+  };
+
+  // 設定資料本体と一覧を新方式で保存する
+  saveReferenceById(
+    migratedReference
   );
+
+  saveReferenceIndex({
+    referenceSets: [
+      {
+        id: referenceId,
+        title: migratedReference.title,
+        order: 1,
+        updatedAt: now
+      }
+    ]
+  });
+
+  const migratedWorks =
+    Array.isArray(legacyWorks)
+      ? legacyWorks.map((work, index) => {
+          const migratedWork = {
+            ...structuredClone(work),
+
+            // 旧作品を、今回作った設定資料へ紐づける
+            referenceSetId: referenceId,
+
+            // 不足している配列を補う
+            novels: work.novels ?? [],
+            folders: work.folders ?? [],
+            pages: work.pages ?? [],
+            events: work.events ?? [],
+            flags: work.flags ?? [],
+            annotations: work.annotations ?? [],
+            hiddenPageIds: work.hiddenPageIds ?? [],
+
+            progress: work.progress ?? {
+              useGoal: false,
+              goalChars: 0
+            },
+
+            updatedAt:
+              work.updatedAt ?? now
+          };
+
+          // 作品本体を1作品1ファイルで保存
+          saveWorkById(
+            migratedWork
+          );
+
+          // indexへ入れる軽量情報だけを返す
+          return {
+            id: migratedWork.id,
+            title: migratedWork.title,
+            referenceSetId: referenceId,
+            order: index + 1,
+            updatedAt: migratedWork.updatedAt
+          };
+        })
+      : [];
+
+  saveWorkIndex({
+    works: migratedWorks
+  });
+
+  // 旧ファイルは消さず、移行済みの印だけ設定へ保存する
+  saveAppSettings({
+    ...appSettings,
+    migrationVersion: 1
+  });
+
+  console.log(
+    "旧データを新しい保存形式へコピーしました。"
+  );
+
+  console.log(
+    "設定資料ID:",
+    referenceId
+  );
+
+  console.log(
+    "移行した作品数:",
+    migratedWorks.length
+  );
+}
+
+// 画面上の変更内容を、新しい保存形式へ反映する
+// 一覧はindex、本体はIDごとの個別JSONへ保存する
+function saveData() {
+  updateSaveStatus(
+    "🟡 保存中...",
+    "saving"
+  );
+
+  const now =
+    new Date().toISOString();
+
+  // =================================
+  // 新方式：現在の設定資料
+  // =================================
+  if (currentReferenceId) {
+    saveReferenceById({
+      id: currentReferenceId,
+      title: currentReferenceTitle,
+      folders,
+      pages: basePages,
+      events: [],
+      flags: [],
+      updatedAt: now
+    });
+
+    const referenceItem = {
+      id: currentReferenceId,
+      title: currentReferenceTitle,
+      updatedAt: now
+    };
+
+    const existingReferenceIndex =
+      referenceIndex.referenceSets.findIndex(
+        (item) => {
+          return item.id === currentReferenceId;
+        }
+      );
+
+    if (existingReferenceIndex >= 0) {
+      const oldItem =
+        referenceIndex.referenceSets[
+          existingReferenceIndex
+        ];
+
+      referenceIndex.referenceSets[
+        existingReferenceIndex
+      ] = {
+        ...oldItem,
+        ...referenceItem
+      };
+    } else {
+      referenceIndex.referenceSets.push({
+        ...referenceItem,
+        order:
+          referenceIndex.referenceSets.length + 1
+      });
+    }
+
+    saveReferenceIndex(
+      referenceIndex
+    );
+  }
+
+  // =================================
+  // 新方式：各作品を個別保存
+  // =================================
+  const newWorkIndexItems =
+  works.map((work, index) => {
+    if (!work.referenceSetId) {
+      work.referenceSetId =
+        currentReferenceId;
+    }
+
+    // 現在編集中の作品だけ、最終更新日時を更新する。
+    // 他の作品まで「今更新した」扱いにしないため。
+    if (work.id === currentWorkId) {
+      work.updatedAt = now;
+    }
+
+    saveWorkById(
+      work
+    );
+
+    return {
+      id: work.id,
+      title: work.title,
+      referenceSetId:
+        work.referenceSetId,
+      order: index + 1,
+      updatedAt:
+        work.updatedAt ?? now
+    };
+  });
+
+  workIndex = {
+    works: newWorkIndexItems
+  };
+
+  saveWorkIndex(
+    workIndex
+  );
+
+  // =================================
+  // アプリ設定
+  // =================================
+  saveAppSettings({
+    leftPaneWidth,
+    rightPaneWidth,
+    lastWorkId: currentWorkId,
+    lastReferenceId:
+      currentReferenceId,
+    migrationVersion
+  });
 
   if (saveStatusTimer) {
     clearTimeout(saveStatusTimer);
   }
 
-  saveStatusTimer = setTimeout(() => {
-    updateSaveStatus("🟢 保存済み", "saved");
-  }, 300);
+  saveStatusTimer =
+    setTimeout(() => {
+      updateSaveStatus(
+        "🟢 保存済み",
+        "saved"
+      );
+
+      updateLastSavedAt();
+    }, 300);
+}
+
+// 保存データがまったく存在しない初回起動時に、
+// サンプル設定資料とサンプル作品を新形式で作成する
+function createInitialSampleData() {
+  const now =
+    new Date().toISOString();
+
+  const referenceId =
+    createDataId("reference");
+
+  // defaultDataを直接書き換えないように、
+  // structuredCloneで複製してから使う
+  const sampleReference = {
+    id: referenceId,
+    title: "サンプル設定資料",
+
+    folders:
+      structuredClone(
+        defaultData.folders
+      ),
+
+    pages:
+      structuredClone(
+        defaultData.basePages
+      ),
+
+    events: [],
+    flags: [],
+
+    updatedAt: now
+  };
+
+  const sampleWorks =
+    structuredClone(
+      defaultData.works
+    ).map((work, index) => {
+      return {
+        ...work,
+
+        // 新形式用の作品IDを付け直す
+        id: createDataId("work"),
+
+        // サンプル設定資料へ紐づける
+        referenceSetId:
+          referenceId,
+
+        folders:
+          work.folders ?? [],
+
+        pages:
+          work.pages ?? [],
+
+        events:
+          work.events ?? [],
+
+        flags:
+          work.flags ?? [],
+
+        annotations:
+          work.annotations ?? [],
+
+        hiddenPageIds:
+          work.hiddenPageIds ?? [],
+
+        progress:
+          work.progress ?? {
+            useGoal: false,
+            goalChars: 0
+          },
+
+        updatedAt: now
+      };
+    });
+
+  const initialReferenceIndex = {
+    referenceSets: [
+      {
+        id: referenceId,
+        title:
+          sampleReference.title,
+        order: 1,
+        updatedAt: now
+      }
+    ]
+  };
+
+  const initialWorkIndex = {
+    works:
+      sampleWorks.map(
+        (work, index) => {
+          return {
+            id: work.id,
+            title: work.title,
+
+            referenceSetId:
+              referenceId,
+
+            order: index + 1,
+
+            updatedAt: now
+          };
+        }
+      )
+  };
+
+  // 設定資料本体を個別JSONへ保存
+  saveReferenceById(
+    sampleReference
+  );
+
+  // 作品本体を1作品1ファイルで保存
+  sampleWorks.forEach((work) => {
+    saveWorkById(
+      work
+    );
+  });
+
+  // 起動画面用の一覧を保存
+  saveReferenceIndex(
+    initialReferenceIndex
+  );
+
+  saveWorkIndex(
+    initialWorkIndex
+  );
+
+  // 初回サンプルはすでに新形式なので、
+  // 旧形式からの移行は完了扱いにする
+  saveAppSettings({
+    leftPaneWidth:
+      defaultData.leftPaneWidth,
+
+    rightPaneWidth:
+      defaultData.rightPaneWidth,
+
+    lastReferenceId:
+      referenceId,
+
+    lastWorkId:
+      sampleWorks[0]?.id ?? null,
+
+    migrationVersion: 1
+  });
+
+  return normalizeLoadedData({
+    folders:
+      sampleReference.folders,
+
+    basePages:
+      sampleReference.pages,
+
+    works:
+      sampleWorks,
+
+    leftPaneWidth:
+      defaultData.leftPaneWidth,
+
+    rightPaneWidth:
+      defaultData.rightPaneWidth,
+
+    lastWorkId:
+      sampleWorks[0]?.id ?? null,
+
+    migrationVersion: 1,
+
+    currentReferenceId:
+      referenceId,
+
+    currentReferenceTitle:
+      sampleReference.title,
+
+    referenceIndex:
+      initialReferenceIndex,
+
+    workIndex:
+      initialWorkIndex
+  });
 }
 
 //localStorageにあるデータを読み込む
-function loadData() {
-  const savedData = localStorage.getItem("fanficStudioData");
+// 保存データを読み込む
+// 新方式があれば新方式を優先し、なければ旧方式へ戻る
+async function loadData() {
+  // 起動時のデータ読み込み時間を計測する
+  console.time(
+    "Fanfic Studio: loadData"
+  );
+  const appSettings =
+    await loadAppSettings();
 
-  if (!savedData) {
-    return defaultData;
+  const referenceIndex =
+    await loadReferenceIndex();
+
+  const workIndex =
+    await loadWorkIndex();
+
+  // =================================
+  // 新方式から読み込む
+  // =================================
+  if (
+    Array.isArray(referenceIndex?.referenceSets) &&
+    referenceIndex.referenceSets.length > 0
+  ) {
+    // 前回開いていた作品のindex情報を探す
+    const lastWorkIndexItem =
+      workIndex?.works?.find((item) => {
+        return item.id === appSettings?.lastWorkId;
+      });
+
+    // 前回作品に紐づく設定資料を優先する
+    // 見つからなければ設定資料一覧の先頭を使う
+    const currentReferenceId =
+      lastWorkIndexItem?.referenceSetId ??
+      appSettings?.lastReferenceId ??
+      referenceIndex.referenceSets[0].id;
+
+    const currentReference =
+      await loadReferenceById(
+        currentReferenceId
+      );
+
+// indexに登録されている作品本体を、
+// 1件ずつ待たずに同時に読み込み始める
+console.time(
+  "Fanfic Studio: 全作品読み込み"
+);
+
+const loadedWorkResults =
+  await Promise.all(
+    (workIndex?.works ?? []).map(
+      (workItem) => {
+        return loadWorkById(
+          workItem.id
+        );
+      }
+    )
+  );
+
+// 読み込み失敗などでnullだった作品を除外する
+const loadedWorks =
+  loadedWorkResults.filter(
+    (work) => {
+      return work !== null;
+    }
+  );
+
+console.timeEnd(
+  "Fanfic Studio: 全作品読み込み"
+);
+
+    return normalizeLoadedData({
+      folders:
+        currentReference?.folders ?? [],
+
+      basePages:
+        currentReference?.pages ?? [],
+
+      works:
+        loadedWorks,
+
+      leftPaneWidth:
+        appSettings?.leftPaneWidth ??
+        defaultData.leftPaneWidth,
+
+      rightPaneWidth:
+        appSettings?.rightPaneWidth ??
+        defaultData.rightPaneWidth,
+
+      lastWorkId:
+        appSettings?.lastWorkId ??
+        loadedWorks[0]?.id ??
+        null,
+
+      migrationVersion:
+        appSettings?.migrationVersion ??
+        0,
+
+      currentReferenceId,
+
+      currentReferenceTitle:
+        currentReference?.title ??
+        "設定資料",
+
+      referenceIndex,
+      workIndex
+    });
   }
 
-  const parsedData = JSON.parse(savedData);
+  // =================================
+  // 旧方式へフォールバック
+  // =================================
+  const referenceData =
+    await loadReferenceData();
 
-  if (!parsedData.basePages || !parsedData.works) {
-    return defaultData;
+  const workData =
+    await loadWorkData();
+
+  const oldAppData =
+    loadAppData();
+
+  // 新旧どちらの保存データも存在しない場合だけ、
+// 初回起動用のサンプルデータを新形式で作成する
+const isCompletelyNew =
+  !referenceData &&
+  !workData &&
+  !oldAppData &&
+  !referenceIndex &&
+  !workIndex;
+
+if (isCompletelyNew) {
+  console.log(
+    "初回起動用のサンプルデータを作成します。"
+  );
+
+  return createInitialSampleData();
+}
+
+  return normalizeLoadedData({
+    folders:
+      referenceData?.folders ??
+      oldAppData?.folders ??
+      defaultData.folders,
+
+    basePages:
+      referenceData?.basePages ??
+      oldAppData?.basePages ??
+      defaultData.basePages,
+
+    works:
+      workData ??
+      oldAppData?.works ??
+      defaultData.works,
+
+    leftPaneWidth:
+      appSettings?.leftPaneWidth ??
+      oldAppData?.leftPaneWidth ??
+      defaultData.leftPaneWidth,
+
+    rightPaneWidth:
+      appSettings?.rightPaneWidth ??
+      oldAppData?.rightPaneWidth ??
+      defaultData.rightPaneWidth,
+
+    lastWorkId:
+      appSettings?.lastWorkId ??
+      null,
+
+    migrationVersion:
+      appSettings?.migrationVersion ??
+      0,
+
+    currentReferenceId: null,
+    currentReferenceTitle:
+      "既存の設定資料",
+
+    referenceIndex: null,
+    workIndex: null
+  });
+
+  
+}
+
+// 新旧どちらから読んでも、画面が扱える形へデータを補う
+function normalizeLoadedData(parsedData) {
+  if (!Array.isArray(parsedData.folders)) {
+    parsedData.folders = [];
   }
 
-  if (!parsedData.folders) {
-    parsedData.folders = defaultData.folders;
+  if (!Array.isArray(parsedData.basePages)) {
+    parsedData.basePages = [];
+  }
+
+  if (!Array.isArray(parsedData.works)) {
+    parsedData.works = [];
   }
 
   parsedData.basePages.forEach((page) => {
     if (!page.folderId) {
-      page.folderId = page.type || "other";
+      page.folderId =
+        page.type || "other";
     }
 
-    if (!page.order) {
+    if (page.order === undefined) {
       page.order = 999;
     }
 
-    // 原作本文の各行に付ける出典を保存する配列
-    // lineIndex = 本文の何行目か
-    // source = 出典名（ゲーム3章、アニメ5話など）
-    if (!page.sources) {
-    page.sources = [];
+    if (!Array.isArray(page.tags)) {
+      page.tags = [];
     }
 
-    //辞書ページにlineIdsがなければ本文の行数分IDをつくる
-    if (!page.lineIds) {
-    page.lineIds = page.body
-    .split("\n")
-    .map(() => createPageId());
-}
+    if (!Array.isArray(page.sources)) {
+      page.sources = [];
+    }
 
+    if (!Array.isArray(page.lineIds)) {
+      page.lineIds =
+        String(page.body ?? "")
+          .split("\n")
+          .map(() => createPageId());
+    }
+
+    if (typeof page.body !== "string") {
+      page.body = "";
+    }
   });
 
   parsedData.works.forEach((work) => {
-    // 小説の配列を保存する
-    if (!work.novels) work.novels = [];
-    // 時系列の配列を保存する
-    if (!work.events) work.events = [];
-    //フラグの配列を保存する
-    if (!work.flags)work.flags = [];
-    // 作品ごとの行単位注釈を保存する配列
-    if (!work.annotations) work.annotations = [];
+    if (!Array.isArray(work.novels)) {
+      work.novels = [];
+    }
+
+    if (!Array.isArray(work.events)) {
+      work.events = [];
+    }
+
+    if (!Array.isArray(work.flags)) {
+      work.flags = [];
+    }
+
+    if (!Array.isArray(work.annotations)) {
+      work.annotations = [];
+    }
+
+    if (!Array.isArray(work.folders)) {
+      work.folders = [];
+    }
+
+    if (!Array.isArray(work.pages)) {
+      work.pages = [];
+    }
+
+    if (!Array.isArray(work.hiddenPageIds)) {
+      work.hiddenPageIds = [];
+    }
+
+    if (!work.progress) {
+      work.progress = {
+        useGoal: false,
+        goalChars: 0
+      };
+    }
   });
 
-  //左右の幅が保存されていたら使う（??）
-  //保存されていないなら240か320になる
-  parsedData.leftPaneWidth = parsedData.leftPaneWidth ?? 240;
-  parsedData.rightPaneWidth = parsedData.rightPaneWidth ?? 320;
+  parsedData.leftPaneWidth =
+    parsedData.leftPaneWidth ?? 240;
+
+  parsedData.rightPaneWidth =
+    parsedData.rightPaneWidth ?? 320;
 
   return parsedData;
 }
@@ -422,6 +1358,13 @@ function loadData() {
 //Date.now()は現在時刻の数字なので、毎回違うIDになりやすい
 function createPageId() {
   return `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+// 保存ファイル用のIDを、種類が分かる形で作る
+function createDataId(prefix) {
+  return `${prefix}-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2)}`;
 }
 
 // currentWorkId をもとに、現在選択中の作品データを取り出す
@@ -448,13 +1391,255 @@ function getCurrentWork() {
   work.annotations = [];
   }
 
+  if (!work.progress) {
+  work.progress = {
+    useGoal: false,
+    goalChars: 0
+  };
+  }
+
+  if (!work.hiddenPageIds) {
+    work.hiddenPageIds = [];
+  }
+
+  if (work.hiddenPagesCollapsed === undefined) {
+    work.hiddenPagesCollapsed = false;
+  }
+
+    // 作品専用辞書フォルダがなければ作る
+  if (!work.folders) {
+    work.folders = [];
+  }
+
+  // 作品専用辞書ページがなければ作る
+  if (!work.pages) {
+    work.pages = [];
+  }
+
   return work;
 }
 
-// currentPageId をもとに、現在選択中の辞書ページを取り出す
-function getCurrentPage() {
-  return pages.find((p) => p.id === currentPageId);
+// 起動画面で選択中の設定資料に属する作品だけを返す
+function getStartupWorksForSelectedReference() {
+  if (!selectedStartupReferenceId) {
+    return [];
+  }
+
+  return works.filter((work) => {
+    return (
+      work.referenceSetId ===
+      selectedStartupReferenceId
+    );
+  });
 }
+
+
+// 現在のレイヤー表示に合わせて、画面に出す辞書フォルダを返す
+function getVisibleDictionaryFolders() {
+  const work = getCurrentWork();
+
+  // 「設定資料のみ」なら、設定資料フォルダだけ
+  if (dictionaryLayerMode === "base") {
+    return folders;
+  }
+
+  // 「設定資料＋作品」なら、両方のフォルダをまとめて返す
+  return [
+    ...folders,
+    ...(work?.folders ?? [])
+  ];
+}
+
+
+// 現在のレイヤー表示に合わせて、画面に出す辞書ページを返す
+function getVisibleDictionaryPages() {
+  const work = getCurrentWork();
+
+  // 「設定資料のみ」なら、設定資料ページだけ
+  if (dictionaryLayerMode === "base") {
+    return basePages;
+  }
+
+  // 「設定資料＋作品」なら、両方のページをまとめて返す
+  return [
+    ...basePages,
+    ...(work?.pages ?? [])
+  ];
+}
+
+// 指定したレイヤーに新しい辞書フォルダを作る
+function createDictionaryFolder(layerType) {
+  showInputModal(
+    "新しいフォルダを作る",
+    "フォルダ名",
+    "",
+    (folderTitle) => {
+      const newFolder = {
+        id: createPageId(),
+        title: folderTitle,
+        collapsed: false
+      };
+
+      if (layerType === "base") {
+        // 設定資料フォルダの末尾へ追加する
+        newFolder.order = folders.length + 1;
+        folders.push(newFolder);
+      }
+
+      if (layerType === "work") {
+        const work = getCurrentWork();
+
+        if (!work) {
+          alert("作品が選択されていません。");
+          return;
+        }
+
+        // 現在の作品専用フォルダの末尾へ追加する
+        newFolder.order = work.folders.length + 1;
+        work.folders.push(newFolder);
+
+        // 作ったフォルダが見える表示へ切り替える
+        dictionaryLayerMode = "overlay";
+        layerToggleButton.textContent =
+          "設定資料＋作品注釈";
+      }
+
+      saveData();
+      renderPageList();
+    }
+  );
+}
+
+// 指定したレイヤーへ、新しい辞書ページを作る
+function createDictionaryPage(layerType) {
+  const work = getCurrentWork();
+
+  // 設定資料側へ追加する場合
+  if (layerType === "base") {
+    const currentPage = getCurrentPage();
+
+    // 今開いているページが設定資料ページなら、同じフォルダへ入れる
+    const currentBasePage =
+      currentPage &&
+      basePages.some((page) => page.id === currentPage.id)
+        ? currentPage
+        : null;
+
+    const targetFolderId =
+      currentBasePage?.folderId ??
+      folders[0]?.id;
+
+    if (!targetFolderId) {
+      alert("先に設定資料フォルダを作成してください。");
+      return;
+    }
+
+    const newPage = {
+      id: createPageId(),
+      title: "新規ページ",
+      folderId: targetFolderId,
+      order: basePages.length + 1,
+      tags: [],
+      body: "",
+      sources: [],
+      lineIds: [createPageId()]
+    };
+
+    basePages.push(newPage);
+
+    saveData();
+    renderPageList();
+    showPage(newPage.id);
+
+    return;
+  }
+
+  // 作品側へ追加する場合
+  if (layerType === "work") {
+    if (!work) {
+      alert("作品が選択されていません。");
+      return;
+    }
+
+    // 作品専用フォルダがまだなければ、自動で1つ作る
+    if (work.folders.length === 0) {
+      work.folders.push({
+        id: createPageId(),
+        title: "作品設定",
+        order: 1,
+        collapsed: false
+      });
+    }
+
+    const currentPage = getCurrentPage();
+
+    // 今開いているページが作品専用ページなら、同じフォルダへ入れる
+    const currentWorkPage =
+      currentPage &&
+      work.pages.some((page) => page.id === currentPage.id)
+        ? currentPage
+        : null;
+
+    const targetFolderId =
+      currentWorkPage?.folderId ??
+      work.folders[0].id;
+
+    const newPage = {
+      id: createPageId(),
+      title: "新規ページ",
+      folderId: targetFolderId,
+      order: work.pages.length + 1,
+      tags: [],
+      body: "",
+      sources: [],
+      lineIds: [createPageId()]
+    };
+
+    work.pages.push(newPage);
+
+    // 作った直後に見えるよう、重ね合わせ表示へ切り替える
+    dictionaryLayerMode = "overlay";
+    layerToggleButton.textContent = "設定資料＋作品注釈";
+
+    saveData();
+    renderPageList();
+    showPage(newPage.id);
+  }
+}
+
+// 現在表示できる辞書ページの中から、選択中のページを返す
+function getCurrentPage() {
+  const visiblePages =
+    getVisibleDictionaryPages();
+
+  return visiblePages.find((page) => {
+    return page.id === currentPageId;
+  });
+}
+
+// この辞書ページが、現在の作品だけで使うページか判定する
+function isWorkDictionaryPage(page) {
+  const work = getCurrentWork();
+
+  if (!work) return false;
+
+  return work.pages.some((workPage) => {
+    return workPage.id === page.id;
+  });
+}
+
+// 辞書ページの所属レイヤーに合ったフォルダ一覧を返す
+function getDictionaryFoldersForPage(page) {
+  const work = getCurrentWork();
+
+  if (isWorkDictionaryPage(page)) {
+    return work?.folders ?? [];
+  }
+
+  return folders;
+}
+
+
 
 // currentNovelId をもとに、現在選択中の小説本文を取り出す
 function getCurrentNovel() {
@@ -483,6 +1668,95 @@ function downloadJson(filename, data) {
   link.click();
 
   URL.revokeObjectURL(url);
+}
+
+// Fanfic Studio全体をバックアップ用の1つのデータにまとめる。
+// この戻り値を downloadJson() に渡してJSON保存する。
+function buildFullBackupData() {
+  return {
+    version: 1,
+
+    exportedAt: new Date().toISOString(),
+
+    userData,
+
+    referenceData: {
+      folders,
+      basePages
+    },
+
+    workData: works,
+
+    appSettings: {
+      leftPaneWidth,
+      rightPaneWidth,
+      lastWorkId: currentWorkId
+    }
+  };
+}
+
+function restoreFullBackupData(backupData) {
+  const restoredReferenceData =
+    backupData?.referenceData || {};
+
+  const restoredAppSettings =
+    backupData?.appSettings || {};
+
+  if (Array.isArray(backupData?.workData)) {
+    works = backupData.workData;
+  }
+
+  if (Array.isArray(restoredReferenceData.folders)) {
+    folders = restoredReferenceData.folders;
+  }
+
+  if (Array.isArray(restoredReferenceData.basePages)) {
+    basePages = restoredReferenceData.basePages;
+  }
+
+  if (backupData?.userData && typeof backupData.userData === "object") {
+    Object.keys(userData).forEach((key) => {
+      delete userData[key];
+    });
+
+    Object.assign(userData, backupData.userData);
+  }
+
+  if (restoredAppSettings.leftPaneWidth !== undefined) {
+    leftPaneWidth = restoredAppSettings.leftPaneWidth;
+  }
+
+  if (restoredAppSettings.rightPaneWidth !== undefined) {
+    rightPaneWidth = restoredAppSettings.rightPaneWidth;
+  }
+
+  const restoredLastWorkId =
+    restoredAppSettings.lastWorkId;
+
+  currentWorkId =
+    restoredLastWorkId &&
+    works.some((work) => work.id === restoredLastWorkId)
+      ? restoredLastWorkId
+      : works.length > 0
+        ? works[0].id
+        : null;
+
+  selectedStartupWorkId = currentWorkId;
+  novels = currentWorkId ? getCurrentWork().novels : [];
+  pages = basePages;
+
+  saveData();
+  saveUserData();
+  updatePaneGrid();
+  renderStartupWorkList();
+  renderStartupSelectedWork();
+  renderPageList();
+
+  if (novels.length > 0) {
+    showNovel(novels[0].id);
+  }
+
+  alert("バックアップから復元しました。");
 }
 
 //小説本文テキスト保存
@@ -530,6 +1804,340 @@ function updateSaveStatus(text, className = "") {
   }
 }
 
+function updateLastSavedAt() {
+  if (!lastSavedAt) return;
+
+  const now = new Date();
+
+  lastSavedAt.textContent =
+    `最終保存：${now.toLocaleTimeString()}`;
+}
+
+// 執筆ログ・プロフィール・実績などを読み込む
+async function loadUserData() {
+  const parsedUserData =
+    await loadAppUserData();
+
+  if (!parsedUserData) {
+    return structuredClone(
+      defaultUserData
+    );
+  }
+
+  return {
+    ...structuredClone(
+      defaultUserData
+    ),
+
+    ...parsedUserData,
+
+    profile: {
+      ...defaultUserData.profile,
+      ...parsedUserData.profile
+    },
+
+    stats: {
+      ...defaultUserData.stats,
+      ...parsedUserData.stats
+    },
+
+    settings: {
+      ...defaultUserData.settings,
+      ...parsedUserData.settings
+    },
+
+    // 古いデータにwritingLogsがなければ空配列を使う
+    writingLogs:
+      Array.isArray(
+        parsedUserData.writingLogs
+      )
+        ? parsedUserData.writingLogs
+        : []
+  };
+}
+
+
+function saveUserData() {
+  saveAppUserData(userData);
+}
+
+//日付取得
+function getTodayKey() {
+  const now = new Date();
+
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const date = String(now.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${date}`;
+}
+
+//今日のログを取得/作成
+function getTodayWritingLog() {
+  const today = getTodayKey();
+
+  let log = userData.writingLogs.find((log) => {
+    return log.date === today;
+  });
+
+  if (!log) {
+  log = {
+    date: today,
+    launch: false,
+    addedChars: 0,
+    deletedChars: 0,
+    dictionaryEdits: false,
+    timelineEdits: false,
+    flagEdits: false,
+    relationEdits: false,
+  };
+
+    userData.writingLogs.push(log);
+  }
+
+  return log;
+}
+
+//起動記録関数
+function recordTodayLaunch() {
+  const log = getTodayWritingLog();
+
+  log.launch = true;
+
+  saveUserData();
+}
+
+//文字数変化を記録する関数
+function recordWritingChange(beforeLength, afterLength) {
+  const diff = afterLength - beforeLength;
+
+  if (diff === 0) return;
+
+  const log = getTodayWritingLog();
+
+  if (diff > 0) {
+    log.addedChars += diff;
+  } else {
+    log.deletedChars += Math.abs(diff);
+  }
+
+  saveUserData();
+}
+
+// 今日、辞書を編集したことを記録する
+function recordDictionaryEdit() {
+  const log = getTodayWritingLog();
+
+  log.dictionaryEdits = true;
+
+  saveUserData();
+}
+
+// 今日、時系列を編集したことを記録する
+function recordTimelineEdit() {
+  const log = getTodayWritingLog();
+
+  log.timelineEdits = true;
+
+  saveUserData();
+}
+
+// 今日、フラグを編集したことを記録する
+function recordFlagEdit() {
+  const log = getTodayWritingLog();
+
+  log.flagEdits = true;
+
+  saveUserData();
+}
+
+// 今日、相関図を編集したことを記録する
+function recordRelationEdit() {
+  const log = getTodayWritingLog();
+
+  log.relationEdits = true;
+
+  saveUserData();
+}
+
+//過去7日間の日付を作る関数
+function getDateKeyFromDate(dateObject) {
+  const year = dateObject.getFullYear();
+  const month = String(dateObject.getMonth() + 1).padStart(2, "0");
+  const date = String(dateObject.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${date}`;
+}
+
+function getRecentDateKeys(days) {
+  const dateKeys = [];
+
+  for (let i = days - 1; i >= 0; i--) {
+    const dateObject = new Date();
+    dateObject.setDate(dateObject.getDate() - i);
+
+    dateKeys.push(getDateKeyFromDate(dateObject));
+  }
+
+  return dateKeys;
+}
+
+function getMonthDateKeys(baseDate) {
+  const year = baseDate.getFullYear();
+  const month = baseDate.getMonth();
+
+  const firstDate = new Date(year, month, 1);
+  const lastDate = new Date(year, month + 1, 0);
+
+  const dateKeys = [];
+
+  for (
+    let date = new Date(firstDate);
+    date <= lastDate;
+    date.setDate(date.getDate() + 1)
+  ) {
+    dateKeys.push(getDateKeyFromDate(date));
+  }
+
+  return dateKeys;
+}
+
+function isFutureMonth(baseDate) {
+  const today = new Date();
+
+  const targetYear = baseDate.getFullYear();
+  const targetMonth = baseDate.getMonth();
+
+  const todayYear = today.getFullYear();
+  const todayMonth = today.getMonth();
+
+  return (
+    targetYear > todayYear ||
+    (
+      targetYear === todayYear &&
+      targetMonth > todayMonth
+    )
+  );
+}
+
+//草
+function getAllWritingLogDateKeys() {
+  return userData.writingLogs
+    .map((log) => log.date)
+    .sort();
+}
+
+function getWritingChartDateKeys() {
+  const rangeSelect =
+    document.getElementById("writing-chart-range");
+
+  const range = rangeSelect ? rangeSelect.value : "7";
+
+  if (range === "all") {
+    const allDateKeys = getAllWritingLogDateKeys();
+
+    if (allDateKeys.length === 0) {
+      return getRecentDateKeys(7);
+    }
+
+    return allDateKeys;
+  }
+
+  return getRecentDateKeys(Number(range));
+}
+
+
+function calculateGrassScore(log) {
+  if (!log) return 0;
+
+  let score = 0;
+
+  if (log.launch) score += 1;
+
+  if (log.addedChars > 0) score += 1;
+  if (log.addedChars >= 10) score += 1;
+  if (log.addedChars >= 100) score += 1;
+  if (log.addedChars >= 200) score += 1;
+  if (log.addedChars >= 300) score += 1;
+  if (log.addedChars >= 500) score += 1;
+  if (log.addedChars >= 1000) score += 1;
+
+  if (log.dictionaryEdits) score += 1;
+  if (log.timelineEdits) score += 1;
+  if (log.flagEdits) score += 1;
+  if (log.relationEdits) score += 1;
+    return score;
+}
+
+function getGrassLevel(score) {
+  if (score <= 0) return 0;
+  if (score <= 2) return 1;
+  if (score <= 4) return 2;
+  if (score <= 6) return 3;
+  return 4;
+}
+
+function buildReceiptImageFileName(dateKey) {
+  const compactDate =
+    dateKey.slice(2).replaceAll("-", "");
+
+  return `${compactDate}-FfS.png`;
+}
+
+function downloadReceiptImage() {
+  const receiptCard =
+    document.querySelector(".receipt-card");
+
+  if (!receiptCard) {
+    alert("保存するレシートがありません。");
+    return;
+  }
+
+  if (!currentReceiptDateKey) {
+    alert("先に草をクリックして、保存したい日のレシートを表示してください。");
+    return;
+  }
+
+  html2canvas(receiptCard, {
+    backgroundColor: null,
+    scale: 2
+  }).then((canvas) => {
+    const link = document.createElement("a");
+
+    link.download =
+      buildReceiptImageFileName(currentReceiptDateKey);
+
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  });
+}
+
+// 保存用の日時文字列を、人間が読みやすい形へ変換する
+function formatDateTime(dateText) {
+  if (!dateText) {
+    return "未記録";
+  }
+
+  const date =
+    new Date(dateText);
+
+  // 日付として読み込めなかった場合は、そのまま返す
+  if (Number.isNaN(date.getTime())) {
+    return dateText;
+  }
+
+  return date.toLocaleString(
+    "ja-JP",
+    {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    }
+  );
+}
+
 
 
 // ==============================
@@ -570,10 +2178,20 @@ function showNovel(novelId) {
 
 // 指定した辞書ページを右側のサイドビューに表示する
 function showPage(pageId) {
-  // pages の中から、クリックされたIDと同じ辞書ページを探す
-  const page = pages.find((p) => p.id === pageId);
-  // 見つからなければ何もしない
+  const visiblePages =
+    getVisibleDictionaryPages();
+
+  const page = visiblePages.find((page) => {
+    return page.id === pageId;
+  });
+
   if (!page) return;
+
+  // 辞書ページを選んだので、
+  // 右ペインも辞書表示へ切り替える
+  switchRightTab(
+    "dictionary"
+  );
 
   // 今選んでいる辞書ページIDを更新する
   currentPageId = pageId;
@@ -601,22 +2219,43 @@ function updateSideInfo(page) {
       ? relatedEvents.map((event) => `<li>${event.title}</li>`).join("")
       : "<li>なし</li>";
 
-  const folderOptions = folders.map((folder) => {
-    const selected = folder.id === page.folderId ? "selected" : "";
-    return `<option value="${folder.id}" ${selected}>${folder.title}</option>`;
-  }).join("");
+  const pageFolders =
+  getDictionaryFoldersForPage(page);
+
+const folderOptions = pageFolders.map((folder) => {
+  const selected =
+    folder.id === page.folderId
+      ? "selected"
+      : "";
+
+  return `
+    <option value="${folder.id}" ${selected}>
+      ${folder.title}
+    </option>
+  `;
+}).join("");
+
+const layerLabel =
+  isWorkDictionaryPage(page)
+    ? "この作品だけ"
+    : "設定資料";
 
   sideInfo.innerHTML = `
-    <label>タイトル</label>
-    <input id="side-title" class="side-input" value="${page.title}">
+  <div class="dictionary-layer-label">
+    ${layerLabel}
+  </div>
 
     <label>フォルダ</label>
     <select id="side-folder" class="side-input">
       ${folderOptions}
     </select>
 
-    <label>タグ</label>
-    <input id="side-tags" class="side-input" value="${page.tags.join(", ")}">
+    <label>タイトル</label>
+    <input
+      id="side-title"
+      class="side-input"
+      value="${page.title}"
+    >
 
     <label>本文</label>
 
@@ -731,12 +2370,12 @@ function showSourceForm(page, lineInfo) {
 
   formArea.innerHTML = `
     <div class="inline-form-box">
-      <label>原作出典</label>
+      <label>設定資料出典</label>
 
       <textarea
         id="inline-source-body"
         class="inline-form-textarea"
-        placeholder="この行の原作出典を入力"
+        placeholder="この行の設定資料出典を入力"
       ></textarea>
 
       <div class="inline-form-actions">
@@ -813,7 +2452,7 @@ function showLineActionMenu(page, lineInfo) {
         </button>
 
         <button id="choose-source-button" class="side-button">
-          原作出典
+          設定資料出典
         </button>
 
         <button id="cancel-inline-form-button" class="side-button">
@@ -914,7 +2553,7 @@ function showEditSourceForm(page, sourceItem) {
 
   formArea.innerHTML = `
     <div class="inline-form-box">
-      <label>原作出典を編集</label>
+      <label>設定資料出典を編集</label>
 
       <textarea
         id="inline-edit-source-body"
@@ -970,31 +2609,26 @@ function showEditSourceForm(page, sourceItem) {
 function setupSideEditor(page) {
   const sideTitle = document.getElementById("side-title");
   const sideFolder = document.getElementById("side-folder");
-  const sideTags = document.getElementById("side-tags");
   //const sideBody = document.getElementById("side-body");
   const moveUpButton = document.getElementById("move-page-up");
   const moveDownButton = document.getElementById("move-page-down");
 
+  //辞書のタイトル編集
   sideTitle.addEventListener("input", () => {
     page.title = sideTitle.value;
+    recordDictionaryEdit();
     saveData();
     renderPageList();
   });
 
+  //辞書のフォルダ編集
   sideFolder.addEventListener("change", () => {
     page.folderId = sideFolder.value;
+    recordDictionaryEdit();
     saveData();
     renderPageList();
   });
 
-  sideTags.addEventListener("input", () => {
-    page.tags = sideTags.value
-      .split(",")
-      .map((tag) => tag.trim())
-      .filter((tag) => tag !== "");
-
-    saveData();
-  });
 
 moveUpButton.addEventListener("click", () => {
   movePage(page, -1);
@@ -1007,108 +2641,155 @@ moveDownButton.addEventListener("click", () => {
 }
 
 //左サイドバーに小説本文一覧と辞書ページ一覧を表示する
-function renderPageList() {
+  function renderPageList() {
   pageList.innerHTML = "";
 
   renderNovelList();
 
-  const keyword = searchInput.value.trim().toLowerCase();
-  const isTagSearch = keyword.startsWith("#");
-  const tagKeyword = keyword.replace("#", "");
+  // 現在のレイヤー設定に応じたフォルダとページを取得する
+  const visibleFolders =
+    getVisibleDictionaryFolders();
 
-  const sortedFolders = [...folders].sort((a, b) => a.order - b.order);
+  const visiblePages =
+    getVisibleDictionaryPages();
+
+  const keyword = searchInput.value.trim().toLowerCase();
+
+  const work = getCurrentWork();
+
+  const hiddenPageIds =
+    work && dictionaryLayerMode === "overlay"
+      ? work.hiddenPageIds || []
+      : [];
+
+  const sortedFolders =
+    [...visibleFolders].sort((a, b) => {
+      return a.order - b.order;
+    });
 
   sortedFolders.forEach((folder) => {
-    const folderPages = pages
-    .filter((page) => page.folderId === folder.id)
-    .filter((page) => {
-      if (!keyword) return true;
+    const folderPages = visiblePages
+      .filter((page) => page.folderId === folder.id)
+      .filter((page) => !hiddenPageIds.includes(page.id))
+      .filter((page) => {
+        if (!keyword) return true;
 
-if (isTagSearch) {
-  return page.tags.some((tag) =>
-    tag.toLowerCase().includes(tagKeyword)
-  );
-}
+        return (
+          page.title
+            .toLowerCase()
+            .includes(keyword) ||
 
-  return (
-    page.title.toLowerCase().includes(keyword) ||
-    page.body.toLowerCase().includes(keyword) ||
-    page.tags.join(" ").toLowerCase().includes(keyword)
-    );
-  })
-  .sort((a, b) => a.order - b.order);
+          page.body
+            .toLowerCase()
+            .includes(keyword)
+        );
+      })
+      .sort((a, b) => a.order - b.order);
 
-    //if (folderPages.length === 0) return;
     if (keyword && folderPages.length === 0) return;
 
     const group = document.createElement("section");
     group.className = "page-group";
 
-const folderHeader = document.createElement("div");
-folderHeader.className = "folder-header";
+    const folderHeader = document.createElement("div");
+    folderHeader.className = "folder-header";
 
-const collapseButton = document.createElement("button");
-collapseButton.addEventListener("click", () => {
-  folder.collapsed = !folder.collapsed;
+    const collapseButton = document.createElement("button");
+    collapseButton.className = "folder-action-button";
+    collapseButton.textContent = folder.collapsed ? "▶" : "▼";
 
-  saveData();
-  renderPageList();
-});
-collapseButton.className = "folder-action-button";
-collapseButton.textContent =
-  folder.collapsed ? "▶" : "▼";
+    collapseButton.addEventListener("click", () => {
+      folder.collapsed = !folder.collapsed;
+      saveData();
+      renderPageList();
+    });
 
-const groupTitle = document.createElement("h3");
-groupTitle.className = "page-group-title";
-groupTitle.textContent = folder.title;
+    const groupTitle = document.createElement("h3");
+    groupTitle.className = "page-group-title";
+    groupTitle.textContent = folder.title;
 
-const renameButton = document.createElement("button");
-renameButton.className = "folder-action-button";
-renameButton.textContent = "✎";
-renameButton.title = "フォルダ名を変更";
+    const renameButton = document.createElement("button");
+    renameButton.className = "folder-action-button";
+    renameButton.textContent = "✎";
+    renameButton.title = "フォルダ名を変更";
 
-renameButton.addEventListener("click", () => {
-  const newTitle = prompt("新しいフォルダ名を入力してください", folder.title);
-  if (!newTitle) return;
+    renameButton.addEventListener("click", () => {
+      showInputModal(
+        "フォルダ名を変更",
+        "新しいフォルダ名",
+        folder.title,
+        (newTitle) => {
+          folder.title = newTitle;
+          saveData();
+          renderPageList();
+        }
+      );
+    });
 
-  folder.title = newTitle;
-  saveData();
-  renderPageList();
-});
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "folder-action-button";
+    deleteButton.textContent = "×";
+    deleteButton.title = "フォルダを削除";
 
-  const deleteButton = document.createElement("button");
-  deleteButton.className = "folder-action-button";
-deleteButton.textContent = "×";
-deleteButton.title = "フォルダを削除";
+    deleteButton.addEventListener("click", () => {
+  const work = getCurrentWork();
 
-  deleteButton.addEventListener("click", () => {
-    const folderPages = pages.filter((page) => page.folderId === folder.id);
+  const isWorkFolder =
+    work?.folders.some((item) => {
+      return item.id === folder.id;
+    });
+
+  const targetPages =
+    isWorkFolder
+      ? work.pages
+      : basePages;
+
+    const folderPages = targetPages.filter((page) => {
+      return page.folderId === folder.id;
+    });
 
     if (folderPages.length > 0) {
-    alert("このフォルダにはページが入っているため削除できません。先にページを別フォルダへ移動してください。");
-    return;
-      }
+      alert(
+        "このフォルダにはページが入っているため削除できません。先にページを別フォルダへ移動してください。"
+      );
+      return;
+    } 
 
-    const ok = confirm(`「${folder.title}」フォルダを削除しますか？`);
+    const ok =
+      confirm(`「${folder.title}」フォルダを削除しますか？`);
+
     if (!ok) return;
 
-  folders = folders.filter((f) => f.id !== folder.id);
-  saveData();
-  renderPageList();
-});
+    if (isWorkFolder) {
+      work.folders = work.folders.filter((item) => {
+        return item.id !== folder.id;
+      });
+    } else {
+      folders = folders.filter((item) => {
+        return item.id !== folder.id;
+     });
+    }
 
-folderHeader.appendChild(collapseButton);
-folderHeader.appendChild(groupTitle);
-folderHeader.appendChild(renameButton);
-folderHeader.appendChild(deleteButton);
+    saveData();
+    renderPageList();
+  });
 
-group.appendChild(folderHeader);
+    folderHeader.appendChild(collapseButton);
+    folderHeader.appendChild(groupTitle);
+    folderHeader.appendChild(renameButton);
+    folderHeader.appendChild(deleteButton);
 
-  if (folder.collapsed) {
-    pageList.appendChild(group);
-    return;
-  }
+    group.appendChild(folderHeader);
+
+    if (folder.collapsed) {
+      pageList.appendChild(group);
+      return;
+    }
+
     folderPages.forEach((page) => {
+      const row = document.createElement("div");
+      row.className = "page-button-row";
+
       const button = document.createElement("button");
       button.className = "page-button";
       button.textContent = page.title;
@@ -1122,11 +2803,145 @@ group.appendChild(folderHeader);
         showPage(page.id);
       });
 
-      group.appendChild(button);
+      row.appendChild(button);
+
+      if (dictionaryLayerMode === "overlay") {
+        const hideButton = document.createElement("button");
+        hideButton.className = "hide-page-button";
+        hideButton.textContent = "−";
+        hideButton.title = "この作品では非表示にする";
+
+        hideButton.addEventListener("click", (event) => {
+          event.stopPropagation();
+
+          const work = getCurrentWork();
+          if (!work) return;
+
+          if (!work.hiddenPageIds) {
+            work.hiddenPageIds = [];
+          }
+
+          if (!work.hiddenPageIds.includes(page.id)) {
+            work.hiddenPageIds.push(page.id);
+          }
+
+          saveData();
+          renderPageList();
+        });
+
+        row.appendChild(hideButton);
+      }
+
+      group.appendChild(row);
     });
 
     pageList.appendChild(group);
   });
+
+  if (dictionaryLayerMode === "overlay") {
+    renderHiddenPageList();
+  }
+}
+
+function renderHiddenPageList() {
+  const work = getCurrentWork();
+  if (!work) return;
+
+  if (!work.hiddenPageIds) {
+    work.hiddenPageIds = [];
+  }
+
+  const hiddenPages = pages.filter((page) => {
+    return work.hiddenPageIds.includes(page.id);
+  });
+
+  if (hiddenPages.length === 0) return;
+
+  const hiddenGroup = document.createElement("section");
+  hiddenGroup.className = "page-group hidden-page-group";
+
+  const header = document.createElement("div");
+header.className = "folder-header";
+
+const collapseButton = document.createElement("button");
+collapseButton.className = "folder-action-button";
+collapseButton.textContent = work.hiddenPagesCollapsed ? "▶" : "▼";
+
+collapseButton.addEventListener("click", () => {
+  work.hiddenPagesCollapsed = !work.hiddenPagesCollapsed;
+
+  saveData();
+  renderPageList();
+});
+
+const title = document.createElement("h3");
+title.className = "page-group-title";
+title.textContent = "非表示";
+
+header.appendChild(collapseButton);
+header.appendChild(title);
+
+hiddenGroup.appendChild(header);
+
+if (work.hiddenPagesCollapsed) {
+  pageList.appendChild(hiddenGroup);
+  return;
+}
+
+  const sortedFolders = [...folders].sort((a, b) => a.order - b.order);
+
+  sortedFolders.forEach((folder) => {
+    const folderHiddenPages = hiddenPages.filter((page) => {
+      return page.folderId === folder.id;
+    });
+
+    if (folderHiddenPages.length === 0) return;
+
+    const folderTitle = document.createElement("div");
+    folderTitle.className = "hidden-folder-title";
+    folderTitle.textContent = folder.title;
+
+    hiddenGroup.appendChild(folderTitle);
+
+    folderHiddenPages.forEach((page) => {
+      const row = document.createElement("div");
+      row.className = "page-button-row";
+
+      const button = document.createElement("button");
+      button.className = "page-button hidden-page-button";
+      button.textContent = page.title;
+
+      if (page.id === currentPageId) {
+        button.classList.add("active");
+      }
+
+      button.addEventListener("click", () => {
+        showPage(page.id);
+      });
+
+      const restoreButton = document.createElement("button");
+      restoreButton.className = "restore-page-button";
+      restoreButton.textContent = "👁";
+      restoreButton.title = "通常表示に戻す";
+
+      restoreButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+
+        work.hiddenPageIds =
+          work.hiddenPageIds.filter((id) => id !== page.id);
+
+        saveData();
+        renderPageList();
+      });
+
+      row.appendChild(button);
+      row.appendChild(restoreButton);
+
+      hiddenGroup.appendChild(row);
+    });
+  });
+
+  pageList.appendChild(hiddenGroup);
 }
 
 //左サイドバーの「小説本文」一覧だけを表示する
@@ -1135,12 +2950,27 @@ function renderNovelList() {
   group.className = "page-group";
 
   const groupTitle = document.createElement("h3");
-groupTitle.className = "novel-group-title";
-  groupTitle.textContent = "▼ 小説本文";
+  groupTitle.className = "novel-group-title";
+  groupTitle.textContent = isNovelListOpen
+    ? "▼ 小説本文"
+    : "▶ 小説本文";
 
-  group.appendChild(groupTitle);
+  groupTitle.addEventListener("click", () => {
+    // 小説本文一覧の開閉状態を反転する。
+    // trueならfalseへ、falseならtrueへ切り替わる。
+    isNovelListOpen = !isNovelListOpen;
 
-  novels.forEach((novel) => {
+    renderPageList();
+  });
+
+group.appendChild(groupTitle);
+
+if (!isNovelListOpen) {
+  pageList.appendChild(group);
+  return;
+}
+
+novels.forEach((novel) => {
     const button = document.createElement("button");
     button.className = "page-button";
     button.textContent = novel.title;
@@ -1164,6 +2994,21 @@ groupTitle.className = "novel-group-title";
 // 時系列タブにイベント一覧を表示する
 // イベントのタイトル・本文・関連フラグ・上下移動・削除ボタンもここで作る
 function renderTimeline() {
+  if (timelineViewMode === "detail") {
+    timelineDetailLayout.classList.remove("hidden");
+    timelineOverviewPanel.classList.add("hidden");
+
+    renderTimelineList();
+    renderTimelineDetail(currentEventId);
+  } else {
+    timelineDetailLayout.classList.add("hidden");
+    timelineOverviewPanel.classList.remove("hidden");
+
+    renderTimelineOverview();
+  }
+}
+
+function renderTimelineList() {
   const work = getCurrentWork();
   if (!work) return;
 
@@ -1173,157 +3018,297 @@ function renderTimeline() {
 
   timelineList.innerHTML = "";
 
-  const sortedEvents = [...work.events].sort((a, b) => a.order - b.order);
+  const sortedEvents = [...work.events].sort((a, b) => {
+    return a.order - b.order;
+  });
 
-sortedEvents.forEach((event) => {
-  // 古いイベントデータに relatedPageIds がない場合、空配列を足す
+  sortedEvents.forEach((event, index) => {
+    const button = document.createElement("button");
+    button.className = "timeline-list-button";
+
+    const displayNumber =
+      String(index + 1).padStart(4, "0");
+
+    button.textContent =
+      event.id === currentEventId
+      ? `▶ ${displayNumber}　${event.title}`
+      : `${displayNumber}　${event.title}`;
+
+    if (event.id === currentEventId) {
+      button.classList.add("active");
+    }
+
+    button.addEventListener("click", () => {
+      currentEventId = event.id;
+
+      renderTimelineList();
+      renderTimelineDetail(event.id);
+    });
+
+    timelineList.appendChild(button);
+  });
+}
+
+function renderTimelineDetail(eventId) {
+  const work = getCurrentWork();
+  if (!work) return;
+
+  const event = work.events.find((event) => {
+    return event.id === eventId;
+  });
+
+  if (!event) {
+    timelineDetailPanel.innerHTML =
+      `<p class="empty-message">イベントが見つかりません。</p>`;
+    return;
+  }
+
   if (!event.relatedPageIds) {
     event.relatedPageIds = [];
   }
 
-  // 古いイベントデータに flags がない場合、空配列を足す
   if (!event.flags) {
     event.flags = [];
   }
 
-  const eventCard = document.createElement("div");
-  eventCard.className = "timeline-card";
+  const selectedPages = event.relatedPageIds
+  .map((pageId) => pages.find((page) => page.id === pageId))
+  .filter((page) => page);
 
-    const pageCheckboxes = pages.map((page) => {
-      const checked =
-        event.relatedPageIds.includes(page.id)
+const selectedPageChips =
+  selectedPages.length > 0
+    ? selectedPages.map((page) => {
+        return `
+    <div
+      class="related-chip open-related-page"
+      data-page-id="${page.id}"
+      >
+      🏷️ ${page.title}
+
+    <button
+      type="button"
+      class="remove-related-page"
+      data-page-id="${page.id}"
+      >
+        ×
+      </button>
+    </div>
+      `;
+      }).join("")
+    : "<p class='empty-message'>関連設定資料はまだありません。</p>";
+
+  const flagCheckboxes = work.flags.map((flag) => {
+    const checked =
+      event.flags.includes(flag.id)
         ? "checked"
         : "";
 
-      return `
-      <label class="event-page-label">
+    return `
+      <label class="event-flag-label">
         <input
           type="checkbox"
-          class="event-page-checkbox"
-          value="${page.id}"
-        ${checked}
-      >
-      ${page.title}
-    </label>
-  `;
-}).join("");
+          class="event-flag-checkbox"
+          value="${flag.id}"
+          ${checked}
+        >
+        ${flag.title}
+      </label>
+    `;
+  }).join("");
 
-const flagCheckboxes = work.flags.map((flag) => {
-  const checked = event.flags.includes(flag.id) ? "checked" : "";
+  timelineDetailPanel.innerHTML = `
+    <input class="timeline-title" value="${event.title}">
 
-  return `
-    <label class="event-flag-label">
-      <input type="checkbox" class="event-flag-checkbox" value="${flag.id}" ${checked}>
-      ${flag.title}
-    </label>
-  `;
-}).join("");
+    <div id="timeline-editor"></div>
 
-eventCard.innerHTML = `
-  <input class="timeline-title" value="${event.title}">
-  <textarea class="timeline-body">${event.body}</textarea>
-  <div class="event-pages">
-    <div class="event-pages-title">
-      関連辞書ページ
+    <div class="event-pages">
+      <div class="event-pages-title">📖 関連設定資料</div>
+
+      <div class="related-chip-list">
+      ${selectedPageChips}
     </div>
 
-  ${pageCheckboxes}
+  <input
+    class="timeline-page-search"
+    placeholder="設定資料を検索して追加"
+  >
+
+  <div class="timeline-page-search-results"></div>
 </div>
-  <div class="event-flags">
-    <div class="event-flags-title">関連フラグ</div>
-    ${flagCheckboxes || "<p class='empty-message'>フラグがまだありません。</p>"}
-  </div>
 
-  <div class="side-button-row">
-    <button class="side-button move-event-up">↑</button>
-    <button class="side-button move-event-down">↓</button>
-    <button class="side-button delete-event">削除</button>
-  </div>
-`;
-    const titleInput = eventCard.querySelector(".timeline-title");
-    const bodyInput = eventCard.querySelector(".timeline-body");
-    const upButton = eventCard.querySelector(".move-event-up");
-    const downButton = eventCard.querySelector(".move-event-down");
-    const deleteButton = eventCard.querySelector(".delete-event");
-    // イベントに紐付ける辞書ページのチェックボックスを取得
-    const pageCheckboxInputs = eventCard.querySelectorAll(".event-page-checkbox");
-    //イベントに紐付けるフラグのチェックボックスを取得
-    const flagCheckboxInputs = eventCard.querySelectorAll(".event-flag-checkbox");
+    <div class="event-flags">
+      <div class="event-flags-title">🚩 関連フラグ</div>
+      ${flagCheckboxes || "<p class='empty-message'>フラグがまだありません。</p>"}
+    </div>
+
+    <div class="side-button-row">
+      <button class="side-button move-event-up">↑</button>
+      <button class="side-button move-event-down">↓</button>
+      <button class="side-button delete-event">削除</button>
+    </div>
+  `;
+
+  setupTimelineDetailEvents(event);
+}
+
+function setupTimelineDetailEvents(event) {
+  const titleInput =
+    timelineDetailPanel.querySelector(".timeline-title");
+
+  const upButton =
+    timelineDetailPanel.querySelector(".move-event-up");
+
+  const downButton =
+    timelineDetailPanel.querySelector(".move-event-down");
+
+  const deleteButton =
+    timelineDetailPanel.querySelector(".delete-event");
+
+    initTimelineEditor(event);
 
 
-    
-// チェックが変わったら、event.relatedPageIds に辞書ページIDを追加・削除する
-pageCheckboxInputs.forEach((checkbox) => {
-  checkbox.addEventListener("change", () => {
-    const pageId = checkbox.value;
+  const flagCheckboxInputs =
+    timelineDetailPanel.querySelectorAll(".event-flag-checkbox");
 
-    if (!event.relatedPageIds) {
-      event.relatedPageIds = [];
-    }
+  titleInput.addEventListener("input", () => {
+    event.title = titleInput.value;
 
-    if (checkbox.checked) {
-      if (!event.relatedPageIds.includes(pageId)) {
-        event.relatedPageIds.push(pageId);
+    saveData();
+    renderTimelineList();
+  });
+
+  const pageSearchInput =
+  timelineDetailPanel.querySelector(".timeline-page-search");
+
+const pageSearchResults =
+  timelineDetailPanel.querySelector(".timeline-page-search-results");
+
+const removePageButtons =
+  timelineDetailPanel.querySelectorAll(".remove-related-page");
+
+const openPageChips =
+  timelineDetailPanel.querySelectorAll(".open-related-page");
+
+openPageChips.forEach((chip) => {
+  chip.addEventListener("click", () => {
+    const pageId = chip.dataset.pageId;
+
+    showPage(pageId);
+  });
+});
+
+removePageButtons.forEach((button) => {
+  button.addEventListener("click", (eventObject) => {
+    eventObject.stopPropagation();
+
+    const pageId = button.dataset.pageId;
+
+    event.relatedPageIds =
+      event.relatedPageIds.filter((id) => id !== pageId);
+
+    saveData();
+    renderTimelineDetail(event.id);
+  });
+});
+
+function renderTimelinePageSearchResults() {
+  if (!pageSearchInput || !pageSearchResults) return;
+
+  const keyword =
+    pageSearchInput.value.trim().toLowerCase();
+
+  pageSearchResults.innerHTML = "";
+
+  if (!keyword) return;
+
+  const matchedPages = pages
+    .filter((page) => {
+      if (event.relatedPageIds.includes(page.id)) {
+        return false;
       }
-    } else {
-      event.relatedPageIds = event.relatedPageIds.filter(
-        (id) => id !== pageId
+
+      return (
+        page.title.toLowerCase().includes(keyword) ||
+        page.body.toLowerCase().includes(keyword) ||
+        page.tags.join(" ").toLowerCase().includes(keyword)
       );
-    }
+    })
+    .slice(0, 10);
 
-    saveData();
-  });
-});
+  if (matchedPages.length === 0) {
+    pageSearchResults.innerHTML =
+      "<p class='empty-message'>見つかりませんでした。</p>";
+    return;
+  }
 
-// チェックが変わったら、event.flags にフラグIDを追加・削除する
-flagCheckboxInputs.forEach((checkbox) => {
-  checkbox.addEventListener("change", () => {
-    const flagId = checkbox.value;
+  matchedPages.forEach((page) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "search-result-button";
+    button.textContent = page.title;
 
-    if (!event.flags) {
-      event.flags = [];
-    }
-
-    if (checkbox.checked) {
-      if (!event.flags.includes(flagId)) {
-        event.flags.push(flagId);
+    button.addEventListener("click", () => {
+      if (!event.relatedPageIds.includes(page.id)) {
+        event.relatedPageIds.push(page.id);
       }
-    } else {
-      event.flags = event.flags.filter((id) => id !== flagId);
-    }
+
+      saveData();
+      renderTimelineDetail(event.id);
+    });
+
+    pageSearchResults.appendChild(button);
+  });
+}
+
+if (pageSearchInput) {
+  pageSearchInput.addEventListener("input", () => {
+    renderTimelinePageSearchResults();
+  });
+}
+
+  flagCheckboxInputs.forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      const flagId = checkbox.value;
+
+      if (!event.flags) {
+        event.flags = [];
+      }
+
+      if (checkbox.checked) {
+        if (!event.flags.includes(flagId)) {
+          event.flags.push(flagId);
+        }
+      } else {
+        event.flags =
+          event.flags.filter((id) => id !== flagId);
+      }
+
+      saveData();
+    });
+  });
+
+  upButton.addEventListener("click", () => {
+    moveEvent(event, -1);
+  });
+
+  downButton.addEventListener("click", () => {
+    moveEvent(event, 1);
+  });
+
+  deleteButton.addEventListener("click", () => {
+    const ok = confirm(`「${event.title}」を削除しますか？`);
+    if (!ok) return;
+
+    const work = getCurrentWork();
+    if (!work) return;
+
+    work.events =
+      work.events.filter((item) => item.id !== event.id);
+
+    currentEventId = null;
 
     saveData();
-  });
-});
-
-    titleInput.addEventListener("input", () => {
-      event.title = titleInput.value;
-      saveData();
-    });
-
-    bodyInput.addEventListener("input", () => {
-      event.body = bodyInput.value;
-      saveData();
-    });
-
-    upButton.addEventListener("click", () => {
-      moveEvent(event, -1);
-    });
-
-    downButton.addEventListener("click", () => {
-      moveEvent(event, 1);
-    });
-
-    deleteButton.addEventListener("click", () => {
-      const ok = confirm(`「${event.title}」を削除しますか？`);
-      if (!ok) return;
-
-      work.events = work.events.filter((e) => e.id !== event.id);
-      saveData();
-      renderTimeline();
-    });
-
-    timelineList.appendChild(eventCard);
+    renderTimeline();
   });
 }
 
@@ -1339,59 +3324,175 @@ function renderFlags() {
 
   flagList.innerHTML = "";
 
-  work.flags.forEach((flag) => {
+  const sortedFlags = [...work.flags].sort((a, b) => {
+  return (a.order ?? 999) - (b.order ?? 999);
+  });
+
+  sortedFlags.forEach((flag, index) => {
+    if (flag.order === undefined) {
+    flag.order = index + 1;
+    }
+    if (flag.collapsed === undefined) {
+      flag.collapsed = true;
+    }
     const flagCard = document.createElement("div");
     flagCard.className = "flag-card";
+    flagCard.dataset.flagId = flag.id;
 
-    const relatedEvents = work.events.filter(
-      (event) => event.flags.includes(flag.id)
-    );
+    if (flag.id === focusFlagId) {
+      flagCard.classList.add("focused-flag");
+    }
+
+    const relatedEvents = work.events.filter((event) => {
+      if (!event.flags) {
+        event.flags = [];
+      }
+
+      return event.flags.includes(flag.id);
+    });
+
     const relatedEventsHtml =
       relatedEvents.length > 0
-      ? relatedEvents.map(event =>
-        `<li>${event.title}</li>`
-      ).join("")
-    : "<li>なし</li>";
+        ? relatedEvents.map((event) => {
+            return `
+              <button
+                class="related-chip flag-related-event-chip"
+                data-event-id="${event.id}"
+              >
+                🏷 ${event.title}
+              </button>
+            `;
+          }).join("")
+        : `<p class="empty-message">関連イベントなし</p>`;
+
+    const isChecked =
+      flag.status === "resolved" || flag.status === "done";
 
     flagCard.innerHTML = `
-      <input class="flag-title" value="${flag.title}">
+  <div class="flag-header">
+  <button
+    class="flag-collapse-toggle"
+    title="${flag.collapsed ? "開く" : "閉じる"}"
+  >
+    ${flag.collapsed ? "▶" : "▼"}
+  </button>
 
-      <select class="flag-status">
-        <option value="unresolved" ${flag.status === "unresolved" ? "selected" : ""}>未回収</option>
-        <option value="resolved" ${flag.status === "resolved" ? "selected" : ""}>回収済み</option>
-        <option value="pending" ${flag.status === "pending" ? "selected" : ""}>保留</option>
-      </select>
+  <input
+    class="flag-check"
+    type="checkbox"
+    ${isChecked ? "checked" : ""}
+  >
 
-      <textarea class="flag-memo">${flag.memo}</textarea>
+    <input
+      class="flag-title"
+      type="text"
+      value="${flag.title}"
+    >
 
-      <button class="side-button delete-flag">削除</button>
+  </div>
+
+<div class="flag-body ${flag.collapsed ? "hidden" : ""}">
+
+  <textarea
+    class="flag-memo"
+    placeholder="TODO・メモを書く"
+  >${flag.memo || ""}</textarea>
+
       <div class="flag-related-events">
-      <strong>関連イベント</strong>
-      <ul>
-      ${relatedEventsHtml}
-      </ul>
+        <strong>関連イベント</strong>
+
+        <div class="related-chip-list">
+          ${relatedEventsHtml}
+        </div>
+
+    <div class="flag-actions">
+
+  <button
+    class="flag-move-up"
+    title="上へ"
+  >
+    ↑
+  </button>
+
+  <button
+    class="flag-move-down"
+    title="下へ"
+  >
+    ↓
+  </button>
+
+  <button
+    class="flag-delete-icon delete-flag"
+    title="削除"
+  >
+    🗑
+  </button>
+
+</div>
+    
+      </div>
       </div>
     `;
 
+    const collapseToggle =
+      flagCard.querySelector(".flag-collapse-toggle");
+    const checkInput = flagCard.querySelector(".flag-check");
     const titleInput = flagCard.querySelector(".flag-title");
-    const statusSelect = flagCard.querySelector(".flag-status");
     const memoInput = flagCard.querySelector(".flag-memo");
     const deleteButton = flagCard.querySelector(".delete-flag");
+    const header =
+      flagCard.querySelector(".flag-header");
+    const eventChips =
+      flagCard.querySelectorAll(".flag-related-event-chip");
+    const body =
+      flagCard.querySelector(".flag-body");
+    const moveUpButton =
+      flagCard.querySelector(".flag-move-up");
+    const moveDownButton =
+      flagCard.querySelector(".flag-move-down");
+      
 
+    checkInput.addEventListener("change", () => {
+      flag.status = checkInput.checked
+        ? "resolved"
+        : "unresolved";
+
+      recordFlagEdit();
+
+      saveData();
+      renderFlags();
+    });
 
     titleInput.addEventListener("input", () => {
       flag.title = titleInput.value;
-      saveData();
-    });
 
-    statusSelect.addEventListener("change", () => {
-      flag.status = statusSelect.value;
+      recordFlagEdit();
+
       saveData();
     });
 
     memoInput.addEventListener("input", () => {
       flag.memo = memoInput.value;
+
+      recordFlagEdit();
+
       saveData();
+    });
+
+    eventChips.forEach((chip) => {
+      chip.addEventListener("click", () => {
+        currentEventId = chip.dataset.eventId;
+        timelineViewMode = "detail";
+
+        switchRightTab(
+          "timeline"
+        );
+
+        detailButton.classList.add("active");
+        overviewButton.classList.remove("active");
+
+        renderTimeline();
+      });
     });
 
     deleteButton.addEventListener("click", () => {
@@ -1399,16 +3500,50 @@ function renderFlags() {
       if (!ok) return;
 
       work.flags = work.flags.filter((f) => f.id !== flag.id);
+
       work.events.forEach((event) => {
-      event.flags = event.flags.filter((id) => id !== flag.id);
+        if (!event.flags) {
+          event.flags = [];
+        }
+
+        event.flags = event.flags.filter((id) => id !== flag.id);
       });
-      
+
       saveData();
       renderFlags();
     });
 
+    collapseToggle.addEventListener("click", () => {
+      flag.collapsed = !flag.collapsed;
+
+      saveData();
+      renderFlags();
+    });
+
+    moveUpButton.addEventListener("click", () => {
+      moveFlag(flag, -1);
+    });
+
+    moveDownButton.addEventListener("click", () => {
+      moveFlag(flag, 1);
+    });
+
     flagList.appendChild(flagCard);
   });
+
+  if (focusFlagId) {
+    const focusedCard =
+      flagList.querySelector(`[data-flag-id="${focusFlagId}"]`);
+
+    if (focusedCard) {
+      focusedCard.scrollIntoView({
+        behavior: "smooth",
+        block: "center"
+      });
+    }
+
+    focusFlagId = null;
+  }
 }
 
 // 中央タブを切り替える
@@ -1441,6 +3576,71 @@ function switchMainTab(tabName) {
   }
 
   //タブごとに、必要な内容だけ再描画する
+  if (tabName === "progress") {
+  updateWritingStats();
+  }
+
+  if (tabName === "profile") {
+  updateWritingStats();
+  }
+}
+
+// 右ペインの辞書・時系列・TODOを切り替える
+function switchRightTab(
+  tabName
+) {
+  currentRightTab =
+    tabName;
+
+  // 右タブの選択表示を解除する
+  rightTabs.forEach(
+    (tab) => {
+      tab.classList.remove(
+        "active"
+      );
+    }
+  );
+
+  // 押された右タブを選択状態にする
+  const activeTab =
+    document.querySelector(
+      `[data-right-tab="${tabName}"]`
+    );
+
+  if (activeTab) {
+    activeTab.classList.add(
+      "active"
+    );
+  }
+
+  // 右の全パネルを一旦隠す
+  rightTabPanels.forEach(
+    (panel) => {
+      panel.classList.add(
+        "hidden"
+      );
+    }
+  );
+
+  // 選ばれた右パネルだけ表示する
+  const panelId =
+    tabName === "dictionary"
+      ? "right-dictionary-panel"
+      : `${tabName}-panel`;
+
+  const targetPanel =
+    document.getElementById(
+      panelId
+    );
+
+  if (targetPanel) {
+    targetPanel.classList.remove(
+      "hidden"
+    );
+  }
+
+  // パネルを開いた時点で、
+  // 最新データを描画する
   if (tabName === "timeline") {
     renderTimeline();
   }
@@ -1449,7 +3649,6 @@ function switchMainTab(tabName) {
     renderFlags();
   }
 }
-
 
 // 現在の中央タブに合わせて、上部メニューのボタン表示を切り替える
 function updatePaneMenu() {
@@ -1466,30 +3665,1131 @@ function updateNovelCharCount() {
 
   if (!novel) {
     novelCharCount.textContent = "0文字";
+    updateWritingStats();
     return;
   }
 
   novelCharCount.textContent = `${novel.body.length}文字`;
+
+  updateWritingStats();
 }
+
+//文字数カウント関数
+function updateWritingStats() {
+  const currentNovelCharCount =
+    document.getElementById("current-novel-char-count");
+
+  const totalWorkCharCount =
+    document.getElementById("total-work-char-count");
+
+  if (!currentNovelCharCount || !totalWorkCharCount) return;
+
+  const novel = getCurrentNovel();
+  const work = getCurrentWork();
+
+  const currentCount = novel ? novel.body.length : 0;
+
+  const totalCount = work
+    ? work.novels.reduce((sum, novel) => {
+        return sum + novel.body.length;
+      }, 0)
+    : 0;
+
+    const launchCount =
+    document.getElementById("launch-count");
+
+    if (launchCount) {
+      launchCount.textContent =
+      userData.stats.launchCount.toLocaleString();
+    }
+
+  currentNovelCharCount.textContent = currentCount.toLocaleString();
+  totalWorkCharCount.textContent = totalCount.toLocaleString();
+
+  renderNovelCharList();
+  updateGoalProgress();
+  updateTodayWritingStats();
+  renderWritingLogList();
+  renderWritingChart();
+  renderActivityGrass(); 
+}
+
+//目標文字数達成率計算
+function updateGoalProgress() {
+  const work = getCurrentWork();
+  if (!work) return;
+
+  if (!work.progress) {
+    work.progress = {
+      useGoal: false,
+      goalChars: 0
+    };
+  }
+
+  const useGoalCheckbox =
+    document.getElementById("use-goal-checkbox");
+
+  const goalSettings =
+    document.getElementById("goal-settings");
+
+  const goalCharInput =
+    document.getElementById("goal-char-input");
+
+  const goalProgressPercent =
+    document.getElementById("goal-progress-percent");
+
+  const goalBarFill =
+    document.getElementById("goal-bar-fill");
+
+  const goalRemainingChars =
+    document.getElementById("goal-remaining-chars");
+
+  if (
+    !useGoalCheckbox ||
+    !goalSettings ||
+    !goalCharInput ||
+    !goalProgressPercent ||
+    !goalBarFill ||
+    !goalRemainingChars 
+  )
+   {
+    return;
+  }
+
+  const totalCount = work.novels.reduce((sum, novel) => {
+    return sum + novel.body.length;
+  }, 0);
+
+  useGoalCheckbox.checked = work.progress.useGoal;
+  goalCharInput.value =
+    work.progress.goalChars > 0 ? work.progress.goalChars : "";
+
+  if (work.progress.useGoal) {
+    goalSettings.classList.remove("hidden");
+  } else {
+    goalSettings.classList.add("hidden");
+  }
+
+const goal = Number(work.progress.goalChars) || 0;
+
+const rawPercent =
+  goal > 0 ? Math.floor((totalCount / goal) * 100) : 0;
+
+const displayPercent =
+  goal > 0 ? rawPercent : 0;
+
+const barPercent =
+  Math.min(100, displayPercent);
+
+const remaining =
+  goal > 0 ? Math.max(0, goal - totalCount) : 0;
+
+goalProgressPercent.textContent = displayPercent.toString();
+goalRemainingChars.textContent = remaining.toLocaleString();
+goalBarFill.style.width = `${barPercent}%`;
+}
+
+//文字数カウント更新関数
+function updateTodayWritingStats() {
+  const addedElement =
+    document.getElementById("today-added-chars");
+
+  const deletedElement =
+    document.getElementById("today-deleted-chars");
+
+  const netElement =
+    document.getElementById("today-net-chars");
+
+  if (!addedElement || !deletedElement || !netElement) return;
+
+  const log = getTodayWritingLog();
+
+  const netChars =
+    log.addedChars - log.deletedChars;
+
+  addedElement.textContent =
+    log.addedChars.toLocaleString();
+
+  deletedElement.textContent =
+    log.deletedChars.toLocaleString();
+
+  netElement.textContent =
+    netChars.toLocaleString();
+}
+
+//ログ一覧表示関数
+function renderWritingLogList() {
+  const listElement =
+    document.getElementById("writing-log-list");
+
+  if (!listElement) return;
+
+  const recentDateKeys = getWritingChartDateKeys();
+
+  listElement.innerHTML = "";
+
+  recentDateKeys.forEach((dateKey) => {
+    const log =
+      userData.writingLogs.find((log) => log.date === dateKey);
+
+    const addedChars = log ? log.addedChars : 0;
+    const deletedChars = log ? log.deletedChars : 0;
+    const netChars = addedChars - deletedChars;
+
+    const row = document.createElement("div");
+    row.className = "writing-log-row";
+
+    row.innerHTML = `
+      <span class="writing-log-date">${dateKey}</span>
+      <span>追加：${addedChars.toLocaleString()}文字</span>
+      <span>削除：${deletedChars.toLocaleString()}文字</span>
+      <span>増減：${netChars.toLocaleString()}文字</span>
+    `;
+
+    listElement.appendChild(row);
+  });
+}
+
+//グラフ描画関数
+function renderWritingChart() {
+  const chartCanvas =
+    document.getElementById("writing-chart");
+
+  if (!chartCanvas) return;
+
+  const dateKeys = getWritingChartDateKeys();
+
+  let cumulativeChars = 0;
+
+  const chartData = dateKeys.map((dateKey) => {
+    const log = userData.writingLogs.find((log) => {
+      return log.date === dateKey;
+    });
+
+    const addedChars = log ? log.addedChars : 0;
+    const deletedChars = log ? log.deletedChars : 0;
+    const netChars = addedChars - deletedChars;
+
+    cumulativeChars += netChars;
+
+    return {
+      date: dateKey.slice(5),
+      addedChars,
+      cumulativeChars
+    };
+  });
+
+  if (writingChartInstance) {
+    writingChartInstance.destroy();
+  }
+
+  writingChartInstance = new Chart(chartCanvas, {
+    type: "bar",
+    data: {
+      labels: chartData.map((data) => data.date),
+      datasets: [
+        {
+          type: "bar",
+          label: "累計文字数",
+          data: chartData.map((data) => data.cumulativeChars),
+          yAxisID: "y"
+        },
+        {
+          type: "line",
+          label: "今日の追加",
+          data: chartData.map((data) => data.addedChars),
+          yAxisID: "y1",
+          tension: 0.3
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          position: "left"
+        },
+        y1: {
+          beginAtZero: true,
+          position: "right",
+          grid: {
+            drawOnChartArea: false
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderActivityGrass() {
+  const grassElement =
+    document.getElementById("activity-grass");
+
+  if (!grassElement) return;
+
+  const year = activityDisplayMonth.getFullYear();
+  const month = activityDisplayMonth.getMonth();
+
+  if (activityMonthLabel) {
+    activityMonthLabel.textContent =
+      `${year}年${month + 1}月`;
+  }
+
+  if (activityNextMonthButton) {
+  const nextMonth = new Date(
+    year,
+    month + 1,
+    1
+  );
+
+  activityNextMonthButton.disabled =
+    isFutureMonth(nextMonth);
+  }
+
+  const dateKeys = getMonthDateKeys(activityDisplayMonth);
+
+  grassElement.innerHTML = "";
+
+  const weekdayHeader = document.createElement("div");
+  weekdayHeader.className = "activity-weekday-header";
+
+  ["日", "月", "火", "水", "木", "金", "土"].forEach((day) => {
+    const dayElement = document.createElement("div");
+    dayElement.className = "activity-weekday";
+    dayElement.textContent = day;
+
+    weekdayHeader.appendChild(dayElement);
+  });
+
+  grassElement.appendChild(weekdayHeader);
+
+  const grid = document.createElement("div");
+  grid.className = "activity-grass-grid";
+
+  const firstDate = new Date(year, month, 1);
+  const firstDay = firstDate.getDay();
+
+  for (let i = 0; i < firstDay; i++) {
+    const emptyCell = document.createElement("div");
+    emptyCell.className = "grass-cell grass-cell-empty";
+
+    grid.appendChild(emptyCell);
+  }
+
+  dateKeys.forEach((dateKey) => {
+    const log = userData.writingLogs.find((log) => {
+      return log.date === dateKey;
+    });
+
+    const score = calculateGrassScore(log);
+    const level = getGrassLevel(score);
+
+    const cell = document.createElement("button");
+    cell.className = `grass-cell level-${level}`;
+    cell.title = `${dateKey} / ${score}点`;
+    cell.textContent = String(Number(dateKey.slice(-2)));
+
+    if (dateKey === getTodayKey()) {
+      cell.classList.add("grass-cell-today");
+    }
+
+    if (dateKey === currentReceiptDateKey) {
+      cell.classList.add("grass-cell-selected");
+    }
+
+    cell.addEventListener("click", () => {
+      renderActivityReceipt(dateKey);
+      renderActivityGrass();
+    });
+
+    grid.appendChild(cell);
+  });
+
+  grassElement.appendChild(grid);
+}
+
+function buildActivityReceiptHtml(dateKey) {
+  const log = userData.writingLogs.find((log) => {
+    return log.date === dateKey;
+  });
+
+  if (!log) {
+    return `
+      <div class="receipt-card">
+        <h3>${dateKey}</h3>
+        <p>この日の記録はありません。</p>
+      </div>
+    `;
+  }
+
+  const netChars =
+    (log.addedChars || 0) - (log.deletedChars || 0);
+
+  const items = [];
+
+  if (log.launch) {
+    items.push(["起動", "○"]);
+  }
+
+  if (log.addedChars > 0) {
+    items.push(["本文追加", `+${log.addedChars.toLocaleString()}文字`]);
+  }
+
+  if (log.deletedChars > 0) {
+    items.push(["本文削除", `-${log.deletedChars.toLocaleString()}文字`]);
+  }
+
+  if (netChars !== 0) {
+    const sign = netChars > 0 ? "+" : "";
+    items.push(["本文増減", `${sign}${netChars.toLocaleString()}文字`]);
+  }
+
+  if (log.dictionaryEdits) {
+    items.push(["辞書編集", "○"]);
+  }
+
+  if (log.timelineEdits) {
+    items.push(["時系列編集", "○"]);
+  }
+
+  if (log.flagEdits) {
+    items.push(["フラグ編集", "○"]);
+  }
+
+  if (log.relationEdits) {
+    items.push(["相関図編集", "○"]);
+  }
+
+  const score = calculateGrassScore(log);
+
+  return `
+    <div class="receipt-card">
+      <div class="receipt-header">
+        <h3>Fanfic Studio 活動レシート</h3>
+        <span>${dateKey}</span>
+      </div>
+
+      <div class="receipt-items">
+        ${items
+          .map((item) => {
+            return `
+              <div class="receipt-row">
+                <span>${item[0]}</span>
+                <strong>${item[1]}</strong>
+              </div>
+            `;
+          })
+          .join("")}
+      </div>
+
+      <div class="receipt-footer">
+        今日の活動スコア：${score}点
+      </div>
+    </div>
+  `;
+}
+
+function renderActivityReceipt(dateKey) {
+  currentReceiptDateKey = dateKey;
+
+  const receiptElement =
+    document.getElementById("activity-receipt");
+
+  if (!receiptElement) return;
+
+  receiptElement.innerHTML =
+    buildActivityReceiptHtml(dateKey);
+}
+
+function renderStartupActivityGrass() {
+  const grassElement =
+    document.getElementById("startup-activity-grass");
+
+  if (!grassElement) return;
+
+  const dateKeys =
+    getMonthDateKeys(activityDisplayMonth);
+
+  grassElement.innerHTML = "";
+
+  const grid = document.createElement("div");
+  grid.className = "activity-grass-grid";
+
+  dateKeys.forEach((dateKey) => {
+    const log =
+      userData.writingLogs.find((log) => {
+        return log.date === dateKey;
+      });
+
+    const score = calculateGrassScore(log);
+    const level = getGrassLevel(score);
+
+    const cell = document.createElement("button");
+    cell.className = `grass-cell level-${level}`;
+    cell.textContent = String(Number(dateKey.slice(-2)));
+    cell.title = `${dateKey} / ${score}点`;
+
+    cell.addEventListener("click", () => {
+      renderStartupActivityReceipt(dateKey);
+    });
+
+    grid.appendChild(cell);
+  });
+
+  grassElement.appendChild(grid);
+}
+
+function renderStartupActivityReceipt(dateKey) {
+  const receiptElement =
+    document.getElementById("startup-activity-receipt");
+
+  if (!receiptElement) return;
+
+  receiptElement.innerHTML =
+    buildActivityReceiptHtml(dateKey);
+}
+
+function renderNovelCharList() {
+  const listElement =
+    document.getElementById("novel-char-list");
+
+  if (!listElement) return;
+
+  const work = getCurrentWork();
+
+  if (!work || !work.novels || work.novels.length === 0) {
+    listElement.innerHTML = "<p>本文がありません。</p>";
+    return;
+  }
+
+  listElement.innerHTML = "";
+
+  work.novels.forEach((novel) => {
+    const row = document.createElement("div");
+    row.className = "novel-char-row";
+
+    const title = document.createElement("span");
+    title.className = "novel-char-title";
+    title.textContent = novel.title;
+
+    const count = document.createElement("span");
+    count.className = "novel-char-count";
+    count.textContent = `${novel.body.length.toLocaleString()}文字`;
+
+    row.appendChild(title);
+    row.appendChild(count);
+
+    listElement.appendChild(row);
+  });
+}
+
+
+function showModal(title, html, onOk) {
+
+  modalTitle.innerHTML = title;
+  modalBody.innerHTML = html;
+
+  modalOverlay.classList.remove("hidden");
+
+  modalOk.onclick = () => {
+
+    modalOverlay.classList.add("hidden");
+
+    if(onOk){
+      onOk();
+    }
+
+  };
+
+  modalCancel.onclick = () => {
+
+    modalOverlay.classList.add("hidden");
+
+  };
+
+}
+
+function showInputModal(title, labelText, defaultValue, onOk) {
+  modalTitle.textContent = title;
+
+  modalBody.innerHTML = `
+    <label class="modal-input-label">
+      ${labelText}
+    </label>
+
+    <input
+      id="modal-input"
+      class="modal-input"
+      type="text"
+      value="${defaultValue || ""}"
+    >
+  `;
+
+  modalOverlay.classList.remove("hidden");
+
+  const input =
+    document.getElementById("modal-input");
+
+  input.focus();
+  input.select();
+
+  modalOk.onclick = () => {
+    const value = input.value.trim();
+
+    if (!value) {
+      alert("名前を入力してください。");
+      return;
+    }
+
+    modalOverlay.classList.add("hidden");
+
+    onOk(value);
+  };
+
+  modalCancel.onclick = () => {
+    modalOverlay.classList.add("hidden");
+  };
+}
+
+function renderTimelineOverview() {
+  const work = getCurrentWork();
+  if (!work) return;
+
+  if (!work.events || work.events.length === 0) {
+    timelineOverviewPanel.innerHTML =
+      `<p class="empty-message">時系列イベントがまだありません。</p>`;
+    return;
+  }
+
+  const sortedEvents = [...work.events].sort((a, b) => {
+    return a.order - b.order;
+  });
+
+  timelineOverviewPanel.innerHTML = "";
+
+  sortedEvents.forEach((event, index) => {
+    const card = document.createElement("article");
+    card.className = "timeline-overview-card";
+
+    const displayNumber = String(index + 1).padStart(3, "0");
+
+    const titleRow = document.createElement("div");
+titleRow.className = "timeline-overview-title-row";
+
+const titleButton = document.createElement("button");
+titleButton.className = "timeline-overview-title";
+titleButton.textContent = `${displayNumber}　${event.title}`;
+
+const editButton = document.createElement("button");
+editButton.className = "timeline-overview-edit-button";
+editButton.textContent = "🖊️";
+editButton.title = "詳細で編集";
+
+editButton.addEventListener("click", () => {
+  currentEventId = event.id;
+  timelineViewMode = "detail";
+
+  detailButton.classList.add("active");
+  overviewButton.classList.remove("active");
+
+  renderTimeline();
+});
+
+titleRow.appendChild(titleButton);
+titleRow.appendChild(editButton);
+
+    const body = document.createElement("div");
+    body.className = "timeline-overview-body";
+    body.textContent = event.body || "本文なし";
+
+    const info = document.createElement("div");
+    info.className = "timeline-overview-info";
+
+    const relatedPages = (event.relatedPageIds || [])
+      .map((pageId) => pages.find((page) => page.id === pageId))
+      .filter((page) => page);
+
+    const relatedFlags = (event.flags || [])
+      .map((flagId) => work.flags.find((flag) => flag.id === flagId))
+      .filter((flag) => flag);
+
+    const pageToggle = document.createElement("button");
+    pageToggle.className = "timeline-overview-info-button";
+    pageToggle.textContent = `📖 ${relatedPages.length}件 ▼`;
+
+    const flagToggle = document.createElement("button");
+    flagToggle.className = "timeline-overview-info-button";
+    flagToggle.textContent = `🚩 ${relatedFlags.length}件 ▼`;
+
+    const detailArea = document.createElement("div");
+    detailArea.className = "timeline-overview-related hidden";
+
+    pageToggle.addEventListener("click", () => {
+  const isPageOpen =
+    detailArea.dataset.openType === "pages" &&
+    !detailArea.classList.contains("hidden");
+
+  if (isPageOpen) {
+    detailArea.classList.add("hidden");
+    detailArea.dataset.openType = "";
+
+    pageToggle.textContent = `📖 ${relatedPages.length}件 ▼`;
+    return;
+  }
+
+  detailArea.classList.remove("hidden");
+  detailArea.dataset.openType = "pages";
+
+  pageToggle.textContent = `📖 ${relatedPages.length}件 ▲`;
+  flagToggle.textContent = `🚩 ${relatedFlags.length}件 ▼`;
+
+  detailArea.innerHTML =
+    relatedPages.length > 0
+      ? relatedPages.map((page) => {
+          return `
+            <button
+              class="timeline-overview-related-item timeline-overview-link"
+              data-page-id="${page.id}"
+            >
+              📖 ${page.title}
+            </button>
+          `;
+        }).join("")
+      : `<div class="timeline-overview-related-item">関連辞書なし</div>`;
+});
+
+    flagToggle.addEventListener("click", () => {
+  const isFlagOpen =
+    detailArea.dataset.openType === "flags" &&
+    !detailArea.classList.contains("hidden");
+
+  if (isFlagOpen) {
+    detailArea.classList.add("hidden");
+    detailArea.dataset.openType = "";
+
+    flagToggle.textContent = `🚩 ${relatedFlags.length}件 ▼`;
+    return;
+  }
+
+  detailArea.classList.remove("hidden");
+  detailArea.dataset.openType = "flags";
+
+  flagToggle.textContent = `🚩 ${relatedFlags.length}件 ▲`;
+  pageToggle.textContent = `📖 ${relatedPages.length}件 ▼`;
+
+  detailArea.innerHTML =
+    relatedFlags.length > 0
+      ? relatedFlags.map((flag) => {
+          return `
+            <button
+              class="timeline-overview-related-item timeline-overview-flag-link"
+              data-flag-id="${flag.id}"
+            >
+              🚩 ${flag.title}
+            </button>
+          `;
+        }).join("")
+      : `<div class="timeline-overview-related-item">関連フラグなし</div>`;
+});
+
+    detailArea.addEventListener("click", (eventObject) => {
+  const target = eventObject.target;
+
+  if (!(target instanceof HTMLElement)) return;
+
+  const pageButton =
+    target.closest(".timeline-overview-link");
+
+  if (pageButton) {
+    const pageId = pageButton.dataset.pageId;
+
+    showPage(pageId);
+    return;
+  }
+
+  const flagButton =
+    target.closest(".timeline-overview-flag-link");
+
+  if (flagButton) {
+    focusFlagId = flagButton.dataset.flagId;
+    switchRightTab(
+      "flags"
+    );
+    return;
+  }
+});
+
+    info.appendChild(pageToggle);
+    info.appendChild(flagToggle);
+
+    card.appendChild(titleRow);
+    card.appendChild(body);
+    
+    card.appendChild(info);
+    card.appendChild(detailArea);
+
+    timelineOverviewPanel.appendChild(card);
+  });
+}
+
+function renderStartupScreen() {
+  const lastWork =
+    works.find((work) => work.id === currentWorkId);
+
+  if (!startupLastWorkTitle || !continueWorkButton) return;
+
+  if (!lastWork) {
+    startupLastWorkTitle.textContent = "作品なし";
+    continueWorkButton.disabled = true;
+    return;
+  }
+
+  startupLastWorkTitle.textContent = lastWork.title;
+  continueWorkButton.disabled = false;
+}
+
+// 起動画面右側に、選択中の作品情報を表示する。
+function renderStartupSelectedWork() {
+  const selectedWork =
+    works.find((work) => work.id === selectedStartupWorkId);
+
+  if (!startupLastWorkTitle || !continueWorkButton) return;
+
+  if (!selectedWork) {
+    startupLastWorkTitle.textContent =
+      "作品なし";
+
+    startupWorkTotalChars.textContent =
+      "0";
+
+    startupWorkUpdatedAt.textContent =
+      "未記録";
+
+    continueWorkButton.disabled =
+      true;
+
+    renameWorkButton.disabled =
+      true;
+
+    return;
+  }
+
+  startupLastWorkTitle.textContent = selectedWork.title;
+  continueWorkButton.disabled = false;
+  renameWorkButton.disabled = false;
+
+  // 選択中作品に入っている本文の文字数を合計する。
+  // 起動画面で「この作品がどれくらい書かれているか」を見るため。
+  const totalChars = selectedWork.novels.reduce((sum, novel) => {
+  return sum + novel.body.length;
+}, 0);
+
+  startupWorkTotalChars.textContent =
+    totalChars.toLocaleString();
+
+  startupWorkUpdatedAt.textContent =
+  formatDateTime(
+    selectedWork.updatedAt
+  );
+} // function renderStartupSelectedWork を閉じる
+
+// 起動画面に設定資料一覧を表示する
+function renderStartupReferenceList() {
+  if (!startupReferenceList) return;
+
+  startupReferenceList.innerHTML = "";
+
+  const sortedReferences =
+    [...referenceIndex.referenceSets].sort(
+      (a, b) => {
+        return (
+          (a.order ?? 999) -
+          (b.order ?? 999)
+        );
+      }
+    );
+
+  if (sortedReferences.length === 0) {
+    startupReferenceList.innerHTML = `
+      <p class="empty-message">
+        設定資料がありません。
+      </p>
+    `;
+
+    return;
+  }
+
+  sortedReferences.forEach((referenceItem) => {
+    // 設定資料名と編集ボタンを横並びにする1行
+    const row =
+      document.createElement("div");
+
+    row.className =
+      "startup-work-row";
+
+    // 設定資料を選択するボタン
+    const selectButton =
+      document.createElement("button");
+
+    selectButton.className =
+      "startup-work-button";
+
+    selectButton.textContent =
+      referenceItem.title;
+
+    if (
+      referenceItem.id ===
+      selectedStartupReferenceId
+    ) {
+      selectButton.classList.add(
+        "active"
+      );
+    }
+
+    selectButton.addEventListener(
+      "click",
+      () => {
+        selectedStartupReferenceId =
+          referenceItem.id;
+
+        const referenceWorks =
+          getStartupWorksForSelectedReference();
+
+        selectedStartupWorkId =
+          referenceWorks[0]?.id ?? null;
+
+        renderStartupReferenceList();
+        renderStartupWorkList();
+        renderStartupSelectedWork();
+      }
+    );
+
+    // 設定資料名を変更するボタン
+    const renameButton =
+      document.createElement("button");
+
+    renameButton.className =
+      "startup-work-delete-button";
+
+    renameButton.textContent = "✎";
+    renameButton.title =
+      "設定資料名を変更";
+
+    renameButton.addEventListener(
+      "click",
+      (event) => {
+        // 親の設定資料選択まで同時に発火するのを防ぐ
+        event.stopPropagation();
+
+        renameReference(
+          referenceItem
+        );
+      }
+    );
+
+    row.appendChild(
+      selectButton
+    );
+
+    row.appendChild(
+      renameButton
+    );
+
+    startupReferenceList.appendChild(
+      row
+    );
+  });
+}
+
+// 起動画面から設定資料名を変更する
+function renameReference(referenceItem) {
+  showInputModal(
+    "設定資料名を変更",
+    "新しい設定資料名",
+    referenceItem.title,
+    async (newTitle) => {
+      const now =
+        new Date().toISOString();
+
+      // 一覧データの名前を変更する
+      referenceItem.title =
+        newTitle;
+
+      referenceItem.updatedAt =
+        now;
+
+      // 設定資料本体を読み込む
+      const referenceData =
+        await loadReferenceById(
+          referenceItem.id
+        );
+
+      if (!referenceData) {
+        alert(
+          "設定資料本体を読み込めませんでした。"
+        );
+
+        return;
+      }
+
+      // 個別JSON側の名前も変更する
+      referenceData.title =
+        newTitle;
+
+      referenceData.updatedAt =
+        now;
+
+      saveReferenceById(
+        referenceData
+      );
+
+      saveReferenceIndex(
+        referenceIndex
+      );
+
+      // 現在本体で開いている設定資料なら、
+      // メモリ上の名前も同時に変更する
+      if (
+        currentReferenceId ===
+        referenceItem.id
+      ) {
+        currentReferenceTitle =
+          newTitle;
+      }
+
+      renderStartupReferenceList();
+    }
+  );
+}
+
+// 起動画面に作品一覧を表示する。
+function renderStartupWorkList() {
+  if (!startupWorkList) return;
+
+  startupWorkList.innerHTML = "";
+
+const referenceWorks =
+  getStartupWorksForSelectedReference();
+
+// 現在選択している設定資料に属する作品だけを、
+// 最終更新日時が新しい順に並べる。
+const sortedWorks =
+  [...referenceWorks].sort((a, b) => {
+    return (
+      new Date(b.updatedAt || 0) -
+      new Date(a.updatedAt || 0)
+    );
+  });
+
+  if (sortedWorks.length === 0) {
+  startupWorkList.innerHTML = `
+    <p class="empty-message">
+      この設定資料に属する作品はありません。
+    </p>
+  `;
+
+  return;
+}
+
+    // 作品ボタンと削除ボタンを横並びにするための1行を作る。
+  sortedWorks.forEach((work) => {
+    //作品1件分の横一列の箱を作る
+    const row = document.createElement("div");
+    row.className = "startup-work-row";
+
+    //作品名を表示するボタンを作る
+    const button = document.createElement("button");
+    button.className = "startup-work-button";
+    button.textContent = work.title;
+
+    if (work.id === selectedStartupWorkId) {
+      button.classList.add("active");
+    }
+
+    button.addEventListener("click", () => {
+      selectedStartupWorkId = work.id;
+
+      renderStartupWorkList();
+      renderStartupSelectedWork();
+    });
+
+    //削除用のゴミ箱ボタンを作る
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "startup-work-delete-button";
+    deleteButton.textContent = "🗑";
+    deleteButton.title = "この作品を削除";
+
+    deleteButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+
+      const ok = confirm(`「${work.title}」を削除しますか？`);
+      if (!ok) return;
+
+      works = works.filter((item) => item.id !== work.id);
+
+      if (selectedStartupWorkId === work.id) {
+        selectedStartupWorkId = works.length > 0 ? works[0].id : null;
+      }
+
+      if (currentWorkId === work.id) {
+        currentWorkId = works.length > 0 ? works[0].id : null;
+        novels = currentWorkId ? getCurrentWork().novels : [];
+      }
+
+      saveData();
+      renderStartupWorkList();
+      renderStartupSelectedWork();
+    });
+
+    // 作ったボタンを1行の中へ入れる。
+    // 最後にrowごと一覧へ追加する。
+    row.appendChild(button);
+    row.appendChild(deleteButton);
+
+    startupWorkList.appendChild(row);
+  });
+} // function renderStartupWorkList を閉じる
 
 
 // ==============================
 // 6. 移動系関数
 // ==============================
 // 辞書ページを同じフォルダ内で上下に移動する
+// 辞書ページを、同じレイヤー・同じフォルダ内で上下に移動する
 function movePage(page, direction) {
-  const sameFolderPages = pages
-    .filter((p) => p.folderId === page.folderId)
-    .sort((a, b) => a.order - b.order);
+  const work = getCurrentWork();
 
-  const index = sameFolderPages.findIndex((p) => p.id === page.id);
+  const targetPages =
+    isWorkDictionaryPage(page)
+      ? work?.pages ?? []
+      : basePages;
+
+  const sameFolderPages = targetPages
+    .filter((item) => {
+      return item.folderId === page.folderId;
+    })
+    .sort((a, b) => {
+      return a.order - b.order;
+    });
+
+  const index = sameFolderPages.findIndex((item) => {
+    return item.id === page.id;
+  });
+
   const targetIndex = index + direction;
 
-  if (targetIndex < 0 || targetIndex >= sameFolderPages.length) {
+  if (
+    targetIndex < 0 ||
+    targetIndex >= sameFolderPages.length
+  ) {
     return;
   }
 
-  const targetPage = sameFolderPages[targetIndex];
+  const targetPage =
+    sameFolderPages[targetIndex];
 
   const tempOrder = page.order;
   page.order = targetPage.order;
@@ -1519,6 +4819,41 @@ function moveEvent(event, direction) {
 
   saveData();
   renderTimeline();
+}
+
+function moveFlag(flag, direction) {
+  const work = getCurrentWork();
+  if (!work) return;
+
+  if (!work.flags) {
+    work.flags = [];
+  }
+
+  const sortedFlags = [...work.flags].sort((a, b) => {
+    return (a.order ?? 999) - (b.order ?? 999);
+  });
+
+  sortedFlags.forEach((item, index) => {
+    if (item.order === undefined) {
+      item.order = index + 1;
+    }
+  });
+
+  const index = sortedFlags.findIndex((item) => item.id === flag.id);
+  const targetIndex = index + direction;
+
+  if (targetIndex < 0 || targetIndex >= sortedFlags.length) {
+    return;
+  }
+
+  const targetFlag = sortedFlags[targetIndex];
+
+  const tempOrder = flag.order;
+  flag.order = targetFlag.order;
+  targetFlag.order = tempOrder;
+
+  saveData();
+  renderFlags();
 }
 
 //幅ドラッグ関係の変数定義
@@ -1558,18 +4893,26 @@ function updatePaneGrid() {
 }
 
 //左サイドバーのサイズ変更箇所のドラッグを検知する
-leftResizer.addEventListener("mousedown", () => {
+leftResizer.addEventListener("mousedown", (event) => {
   if (appLayout.classList.contains("left-collapsed")) return;
 
+  event.preventDefault();
+
   isDraggingLeft = true;
+  document.body.classList.add("is-resizing");
+
   console.log("左ドラッグ開始！");
 });
 
 //右サイドバーのサイズ変更箇所のドラッグを検知する
-rightResizer.addEventListener("mousedown", () => {
+rightResizer.addEventListener("mousedown", (event) => {
   if (appLayout.classList.contains("right-collapsed")) return;
 
+  event.preventDefault();
+
   isDraggingRight = true;
+  document.body.classList.add("is-resizing");
+
   console.log("右ドラッグ開始！");
 });
 
@@ -1608,6 +4951,8 @@ document.addEventListener("mouseup", () => {
     console.log("右ドラッグ終了！");
     saveData();
   }
+
+  document.body.classList.remove("is-resizing");
 });
 
 
@@ -1649,23 +4994,26 @@ function setupWikiLinkClicks(area) {
 // 8. ボタン・入力イベント登録
 // ==============================
 //辞書作成ボタン
+// 新しい辞書ページを作る
+// 辞書追加メニューを開閉する
 newPageButton.addEventListener("click", () => {
-  const newPage = {
-    id: createPageId(),
-    title: "新規ページ",
-    folderId: "other",
-    order: pages.length + 1,
-    tags: [],
-    body: "",
-    sources: [],
-    lineIds: [createPageId()]
-};
-
-  pages.push(newPage);
-  saveData();
-  renderPageList();
-  showPage(newPage.id);
+  newPageMenu.classList.toggle("hidden");
 });
+
+// 設定資料側へ辞書ページを作る
+newBasePageButton.addEventListener("click", () => {
+  newPageMenu.classList.add("hidden");
+
+  createDictionaryPage("base");
+});
+
+// 現在の作品だけで使う辞書ページを作る
+newWorkPageButton.addEventListener("click", () => {
+  newPageMenu.classList.add("hidden");
+
+  createDictionaryPage("work");
+});
+
 
 //小説本文作成ボタン
 newNovelButton.addEventListener("click", () => {
@@ -1689,13 +5037,26 @@ deletePageButton.addEventListener("click", () => {
   const ok = confirm(`「${page.title}」を削除しますか？`);
   if (!ok) return;
 
-  pages = pages.filter((p) => p.id !== page.id);
+  const work = getCurrentWork();
+
+  if (isWorkDictionaryPage(page)) {
+    work.pages = work.pages.filter((item) => {
+      return item.id !== page.id;
+    });
+  } else {
+    basePages = basePages.filter((item) => {
+      return item.id !== page.id;
+    });
+  }
+
   currentPageId = null;
+  currentDictionaryPage = null;
 
   saveData();
   renderPageList();
 
-  sideInfo.innerHTML = "辞書ページを選択してください。";
+  sideInfo.innerHTML =
+    "辞書ページを選択してください。";
 });
 
 //小説削除ボタン
@@ -1742,22 +5103,23 @@ bodyInput.addEventListener("input", () => {
   saveData();
 });
 
-//フォルダ作成ボタン
+// フォルダ追加メニューを開閉する
 newFolderButton.addEventListener("click", () => {
-  const folderTitle = prompt("フォルダ名を入力してください");
+  newFolderMenu.classList.toggle("hidden");
+});
 
-  if (!folderTitle) return;
+// 設定資料側へフォルダを作る
+newBaseFolderButton.addEventListener("click", () => {
+  newFolderMenu.classList.add("hidden");
 
-  const newFolder = {
-    id: createPageId(),
-    title: folderTitle,
-    order: folders.length + 1,
-    collapsed: false
-  };
+  createDictionaryFolder("base");
+});
 
-  folders.push(newFolder);
-  saveData();
-  renderPageList();
+// 現在の作品だけで使うフォルダを作る
+newWorkFolderButton.addEventListener("click", () => {
+  newFolderMenu.classList.add("hidden");
+
+  createDictionaryFolder("work");
 });
 
 searchInput.addEventListener("input", () => {
@@ -1769,6 +5131,18 @@ mainTabs.forEach((tab) => {
   tab.addEventListener("click", () => {
     switchMainTab(tab.dataset.tab);
   });
+});
+
+// 右ペインのタブ切替
+rightTabs.forEach((tab) => {
+  tab.addEventListener(
+    "click",
+    () => {
+      switchRightTab(
+        tab.dataset.rightTab
+      );
+    }
+  );
 });
 
 //時系列イベント作成ボタン
@@ -1785,6 +5159,9 @@ newEventButton.addEventListener("click", () => {
   };
 
   work.events.push(newEvent);
+
+  currentEventId = newEvent.id;
+
   saveData();
   renderTimeline();
 });
@@ -1810,19 +5187,22 @@ newFlagButton.addEventListener("click", () => {
 layerToggleButton.addEventListener("click", () => {
   if (dictionaryLayerMode === "base") {
     dictionaryLayerMode = "overlay";
-    layerToggleButton.textContent = "原作＋作品注釈";
+    layerToggleButton.textContent = "設定資料＋作品注釈";
   } else {
     dictionaryLayerMode = "base";
-    layerToggleButton.textContent = "原作のみ";
+    layerToggleButton.textContent = "設定資料のみ";
   }
 
   const page = getCurrentPage();
   if (page) {
     updateSideInfo(page);
   }
+
+  renderPageList();
+
 });
 
-// 原作データのJSONファイルを読み込む
+// 設定資料データのJSONファイルを読み込む
 importBaseFile.addEventListener("change", () => {
   const file = importBaseFile.files[0];
   if (!file) return;
@@ -1833,7 +5213,7 @@ importBaseFile.addEventListener("change", () => {
     const importedData = JSON.parse(reader.result);
 
     if (importedData.type !== "base") {
-      alert("原作データではありません。");
+      alert("設定資料データではありません。");
       return;
     }
 
@@ -1844,10 +5224,16 @@ importBaseFile.addEventListener("change", () => {
 
     saveData();
     renderPageList();
+    const page = getCurrentPage();
+      if (page) {
+      updateSideInfo(page);
+      }
+
+  renderPageList();
 
     sideInfo.innerHTML = "辞書ページを選択してください。";
 
-    alert("原作データを読み込みました。");
+    alert("設定資料データを読み込みました。");
   });
 
   reader.readAsText(file);
@@ -1905,44 +5291,158 @@ importWorkFile.addEventListener("change", () => {
   reader.readAsText(file);
 });
 
-// 読み込みメニューを開閉する
-importButton.addEventListener("click", () => {
-  importMenu.classList.toggle("hidden");
-  exportMenu.classList.add("hidden");
+
+startupMenuButton.addEventListener("click", () => {
+  startupMenu.classList.toggle("hidden");
 });
 
-// 書き出しメニューを開閉する
-exportButton.addEventListener("click", () => {
-  exportMenu.classList.toggle("hidden");
-  importMenu.classList.add("hidden");
+exportFullBackupButton.addEventListener("click", () => {
+  startupMenu.classList.add("hidden");
+
+  downloadJson(
+    "fanfic-studio-backup.json",
+    buildFullBackupData()
+  );
 });
 
-// 原作読み込み
-importBaseButton.addEventListener("click", () => {
-  importMenu.classList.add("hidden");
-  importBaseFile.click();
+appMenuButton.addEventListener("click", () => {
+  appMenu.classList.toggle("hidden");
+});
+
+appImportToggleButton.addEventListener("click", () => {
+  appImportSection.classList.toggle("hidden");
+
+  appImportToggleButton.textContent =
+    appImportSection.classList.contains("hidden")
+      ? "読み込み ▼"
+      : "読み込み ▲";
+});
+
+appExportToggleButton.addEventListener("click", () => {
+  appExportSection.classList.toggle("hidden");
+
+  appExportToggleButton.textContent =
+    appExportSection.classList.contains("hidden")
+      ? "書き出し ▼"
+      : "書き出し ▲";
+});
+
+backToStartupButton.addEventListener("click", () => {
+  appMenu.classList.add("hidden");
+
+  appShell.classList.add("hidden");
+  startupScreen.classList.remove("hidden");
+
+selectedStartupWorkId =
+  currentWorkId;
+
+selectedStartupReferenceId =
+  currentReferenceId;
+
+renderStartupReferenceList();
+renderStartupWorkList();
+renderStartupSelectedWork();
+});
+
+
+importFullBackupButton.addEventListener("click", () => {
+  startupMenu.classList.add("hidden");
+
+  const ok = confirm(
+    "バックアップから復元すると、現在のデータが上書きされます。続行しますか？"
+  );
+
+  if (!ok) return;
+
+  importFullBackupFile.value = "";
+  importFullBackupFile.click();
+});
+
+importFullBackupFile.addEventListener("change", () => {
+  const file = importFullBackupFile.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.addEventListener("load", () => {
+    let backupData;
+
+    try {
+      backupData = JSON.parse(reader.result);
+    } catch (error) {
+      alert("バックアップファイルを読み込めませんでした。");
+      importFullBackupFile.value = "";
+      return;
+    }
+
+    restoreFullBackupData(backupData);
+    importFullBackupFile.value = "";
+  });
+
+  reader.readAsText(file);
+});
+
+// 設定資料読み込み
+appImportBaseButton.addEventListener("click", () => {
+  appMenu.classList.add("hidden");
+  showModal(
+    "設定資料を読み込みます",
+    `
+    <p>
+      Fanfic Studioは個人用設定資料を保存・復元するためのツールです。
+    </p>
+
+    <p>
+      他の人が作成した設定資料には、
+      権利者の許可なく公開・共有されたデータが含まれている可能性があります。
+    </p>
+
+    <p>
+      信頼できるデータのみ読み込んでください。
+    </p>
+    `,
+    () => {
+      importBaseFile.click();
+    }
+  );
 });
 
 // 作品読み込み
-importWorkButton.addEventListener("click", () => {
-  importMenu.classList.add("hidden");
+appImportWorkButton.addEventListener("click", () => {
   importWorkFile.click();
 });
 
-// 原作書き出し
-exportBaseButton.addEventListener("click", () => {
-  exportMenu.classList.add("hidden");
+// 設定資料書き出し
+appExportBaseButton.addEventListener("click", () => {
 
-  downloadJson("base-data.json", {
-    type: "base",
-    folders,
-    basePages
-  });
+  showModal(
+    "設定資料を書き出します",
+    `
+    <p>
+      Fanfic Studioは個人用設定資料を保存・復元するためのツールです。
+    </p>
+
+    <p>
+      公式作品本文や有料コンテンツ等を含むデータを、
+      権利者の許可なく共有・公開することは推奨していません。
+    </p>
+
+    <p>
+      個人利用の範囲や権利者の利用条件を確認した上で書き出してください。
+    </p>
+    `,
+    () => {
+      downloadJson("reference-data.json", {
+        type: "base",
+        folders,
+        basePages
+      });
+    }
+  );
 });
 
 // 作品書き出し
-exportWorkButton.addEventListener("click", () => {
-  exportMenu.classList.add("hidden");
+appExportWorkButton.addEventListener("click", () => {
 
   const work = getCurrentWork();
   if (!work) return;
@@ -1954,8 +5454,7 @@ exportWorkButton.addEventListener("click", () => {
 });
 
 // 現在開いている小説本文をtxt書き出し
-exportCurrentNovelTextButton.addEventListener("click", () => {
-  exportMenu.classList.add("hidden");
+appExportCurrentNovelTextButton.addEventListener("click", () => {
 
   const novel = getCurrentNovel();
 
@@ -1971,8 +5470,7 @@ exportCurrentNovelTextButton.addEventListener("click", () => {
 });
 
 //小説本文全文書き出し
-exportAllNovelsTextButton.addEventListener("click", () => {
-  exportMenu.classList.add("hidden");
+appExportAllNovelsTextButton.addEventListener("click", () => {
 
   if (novels.length === 0) {
     alert("書き出す本文がありません。");
@@ -1991,13 +5489,25 @@ exportAllNovelsTextButton.addEventListener("click", () => {
 // アンドゥボタン
 undoButton.addEventListener("click", () => {
   if (!novelEditor) return;
-  undo(novelEditor);
+
+  undo({
+    state: novelEditor.state,
+    dispatch: novelEditor.dispatch
+  });
+
+  novelEditor.focus();
 });
 
 //リドゥボタン
 redoButton.addEventListener("click", () => {
   if (!novelEditor) return;
-  redo(novelEditor);
+
+  redo({
+    state: novelEditor.state,
+    dispatch: novelEditor.dispatch
+  });
+
+  novelEditor.focus();
 });
 
 //左パネル閉じ開きボタン
@@ -2043,6 +5553,718 @@ function ensurePageLineIds(page) {
   }
 }
 
+// CodeMirrorで本文が変更されたとき、
+// 変更前の各行IDを変更後の対応する行へ引き継ぐ
+function updatePageLineIdsFromTransaction(
+  page,
+  transaction
+) {
+  if (!page) return;
+  if (!transaction.docChanged) return;
+
+  const oldDoc =
+    transaction.startState.doc;
+
+  const newDoc =
+    transaction.newDoc;
+
+  // 変更前の行数とlineIds数を揃えておく
+  if (!Array.isArray(page.lineIds)) {
+    page.lineIds = [];
+  }
+
+  // 過去の処理でlineIdsが行数より多くなっている場合は、
+// 変更前文書の行数へ揃える
+if (
+  page.lineIds.length >
+  oldDoc.lines
+) {
+  page.lineIds =
+    page.lineIds.slice(
+      0,
+      oldDoc.lines
+    );
+}
+
+  while (
+    page.lineIds.length <
+    oldDoc.lines
+  ) {
+    page.lineIds.push(
+      createPageId()
+    );
+  }
+
+  const oldLineIds =
+    [...page.lineIds];
+
+  // 変更後の各行に、どの旧IDを引き継ぐかを入れる
+  const candidatesByNewLine =
+    Array.from(
+      {
+        length: newDoc.lines
+      },
+      () => []
+    );
+
+  oldLineIds.forEach(
+    (lineId, oldIndex) => {
+      const oldLine =
+        oldDoc.line(oldIndex + 1);
+
+      // 変更前の行頭・行末が、
+      // 変更後のどこへ移ったか調べる
+      const mappedFrom =
+        transaction.changes.mapPos(
+          oldLine.from,
+          1
+        );
+
+      const mappedTo =
+        transaction.changes.mapPos(
+          oldLine.to,
+          -1
+        );
+
+      const safePosition =
+        Math.max(
+          0,
+          Math.min(
+            mappedFrom,
+            newDoc.length
+          )
+        );
+
+      const newLineIndex =
+        newDoc.lineAt(
+          safePosition
+        ).number - 1;
+
+      // 元の行内容がどれくらい残っているか。
+      // 行全体を削除した場合は0に近くなる。
+      const survivingLength =
+        Math.max(
+          0,
+          mappedTo - mappedFrom
+        );
+
+      candidatesByNewLine[
+        newLineIndex
+      ].push({
+        lineId,
+        survivingLength,
+        oldIndex
+      });
+    }
+  );
+
+  const newLineIds =
+    [];
+
+  // 改行削除で複数の旧行が1行になった場合に、
+  // 消える側のIDを残るIDへ付け替えるための対応表
+  const redirectedLineIds =
+    new Map();
+
+  candidatesByNewLine.forEach(
+    (candidates, newIndex) => {
+      if (
+        candidates.length === 0
+      ) {
+        // 新しく追加された行
+        newLineIds[newIndex] =
+          createPageId();
+
+        return;
+      }
+
+      // 内容が多く残った旧行のIDを優先する。
+      // 同じなら上側の行を優先する。
+      candidates.sort((a, b) => {
+        return (
+          b.survivingLength -
+            a.survivingLength ||
+          a.oldIndex -
+            b.oldIndex
+        );
+      });
+
+      const keptLineId =
+        candidates[0].lineId;
+
+      newLineIds[newIndex] =
+        keptLineId;
+
+      // 同じ行へ合流した他のIDは、
+      // 採用されたIDへ付け替える
+      candidates
+        .slice(1)
+        .forEach((candidate) => {
+          redirectedLineIds.set(
+            candidate.lineId,
+            keptLineId
+          );
+        });
+    }
+  );
+
+  page.lineIds =
+    newLineIds;
+
+  updateLineReferencesAfterEdit(
+    page,
+    redirectedLineIds
+  );
+}
+
+// 改行追加・削除後に、
+// 出典と作品注釈のlineId・lineIndexを現在の行へ合わせる
+function updateLineReferencesAfterEdit(
+  page,
+  redirectedLineIds
+) {
+  const work =
+    getCurrentWork();
+
+  const lineIndexById =
+    new Map();
+
+  page.lineIds.forEach(
+    (lineId, index) => {
+      lineIndexById.set(
+        lineId,
+        index
+      );
+    }
+  );
+
+  // 改行削除で2行が1行へ合流した場合は、
+  // 消えた行IDを残った行IDへ付け替える
+  const resolveLineId =
+    (oldLineId) => {
+      let currentLineId =
+        oldLineId;
+
+      const visited =
+        new Set();
+
+      while (
+        redirectedLineIds.has(
+          currentLineId
+        ) &&
+        !visited.has(
+          currentLineId
+        )
+      ) {
+        visited.add(
+          currentLineId
+        );
+
+        currentLineId =
+          redirectedLineIds.get(
+            currentLineId
+          );
+      }
+
+      return currentLineId;
+    };
+
+  if (!Array.isArray(page.sources)) {
+    page.sources = [];
+  }
+
+  page.sources.forEach(
+    (sourceItem) => {
+      if (!sourceItem.lineId) {
+        return;
+      }
+
+      sourceItem.lineId =
+        resolveLineId(
+          sourceItem.lineId
+        );
+
+      const newIndex =
+        lineIndexById.get(
+          sourceItem.lineId
+        );
+
+      if (newIndex !== undefined) {
+        sourceItem.lineIndex =
+          newIndex;
+      }
+    }
+  );
+
+  if (
+    !work ||
+    !Array.isArray(
+      work.annotations
+    )
+  ) {
+    return;
+  }
+
+  work.annotations
+    .filter((annotation) => {
+      return (
+        annotation.pageId ===
+        page.id
+      );
+    })
+    .forEach((annotation) => {
+      if (!annotation.lineId) {
+        return;
+      }
+
+      annotation.lineId =
+        resolveLineId(
+          annotation.lineId
+        );
+
+      const newIndex =
+        lineIndexById.get(
+          annotation.lineId
+        );
+
+      if (newIndex !== undefined) {
+        annotation.lineIndex =
+          newIndex;
+      }
+    });
+}
+
+function setupProgressEvents() {
+  const useGoalCheckbox =
+    document.getElementById("use-goal-checkbox");
+
+  const goalCharInput =
+    document.getElementById("goal-char-input");
+
+  if (!useGoalCheckbox || !goalCharInput) return;
+
+  useGoalCheckbox.addEventListener("change", () => {
+    const work = getCurrentWork();
+    if (!work) return;
+
+    if (!work.progress) {
+      work.progress = {
+        useGoal: false,
+        goalChars: 0
+      };
+    }
+
+    work.progress.useGoal = useGoalCheckbox.checked;
+
+    saveData();
+    updateGoalProgress();
+  });
+
+  goalCharInput.addEventListener("input", () => {
+    const work = getCurrentWork();
+    if (!work) return;
+
+    if (!work.progress) {
+      work.progress = {
+        useGoal: false,
+        goalChars: 0
+      };
+    }
+
+    work.progress.goalChars = Number(goalCharInput.value) || 0;
+
+    saveData();
+    updateGoalProgress();
+  });
+
+  const chartRangeSelect =
+  document.getElementById("writing-chart-range");
+
+  if (chartRangeSelect) {
+    chartRangeSelect.addEventListener("change", () => {
+      renderWritingChart();
+    });
+  }
+}
+
+//開閉ボタン
+// 右ペインのイベント一覧を上下に開閉する
+toggleTimelineSideButton.addEventListener(
+  "click",
+  () => {
+    timelineDetailLayout.classList.toggle(
+      "list-collapsed"
+    );
+
+    const isCollapsed =
+      timelineDetailLayout.classList.contains(
+        "list-collapsed"
+      );
+
+    toggleTimelineSideButton.textContent =
+      isCollapsed
+        ? "▼"
+        : "▲";
+
+    toggleTimelineSideButton.title =
+      isCollapsed
+        ? "イベント一覧を開く"
+        : "イベント一覧を閉じる";
+  }
+);
+
+const detailButton =
+document.getElementById("timeline-detail-view-button");
+
+const overviewButton =
+document.getElementById("timeline-overview-view-button");
+
+detailButton.addEventListener("click",()=>{
+
+    timelineViewMode="detail";
+
+    detailButton.classList.add("active");
+    overviewButton.classList.remove("active");
+
+    renderTimeline();
+
+});
+
+overviewButton.addEventListener("click",()=>{
+
+    timelineViewMode="overview";
+
+    overviewButton.classList.add("active");
+    detailButton.classList.remove("active");
+
+    renderTimeline();
+
+});
+
+saveReceiptImageButton.addEventListener("click", () => {
+  downloadReceiptImage();
+});
+
+activityPrevMonthButton.addEventListener("click", () => {
+  activityDisplayMonth = new Date(
+    activityDisplayMonth.getFullYear(),
+    activityDisplayMonth.getMonth() - 1,
+    1
+  );
+
+  currentReceiptDateKey = null;
+
+  activityReceipt.innerHTML =
+    "草をクリックすると、その日の記録が表示されます。";
+
+  renderActivityGrass();
+});
+
+activityNextMonthButton.addEventListener("click", () => {
+  activityDisplayMonth = new Date(
+    activityDisplayMonth.getFullYear(),
+    activityDisplayMonth.getMonth() + 1,
+    1
+  );
+
+  currentReceiptDateKey = null;
+
+  activityReceipt.innerHTML =
+    "草をクリックすると、その日の記録が表示されます。";
+
+  renderActivityGrass();
+});
+
+// 以前の「作品を選ぶ」ボタン用の処理。
+// 起動画面を左右レイアウトに変更して、このボタンは使わなくなったため停止中。
+// openAppButton.addEventListener("click", () => {
+//   startupScreen.classList.add("hidden");
+//   appShell.classList.remove("hidden");
+//
+//   updatePaneGrid();
+//   updateWritingStats();
+// });
+
+// 起動画面で選択している作品を、本体画面で開く。
+// 作品を開くために必要な処理を、1か所にまとめておく。
+// 起動画面で選択している作品と、
+// その作品に紐づく設定資料を本体画面で開く。
+async function openSelectedWork() {
+  if (!selectedStartupWorkId) return;
+
+  const selectedWork =
+    works.find((work) => {
+      return (
+        work.id ===
+        selectedStartupWorkId
+      );
+    });
+
+  if (!selectedWork) {
+    alert("作品データが見つかりません。");
+    return;
+  }
+
+  if (!selectedWork.referenceSetId) {
+    alert(
+      "この作品には設定資料が紐づいていません。"
+    );
+    return;
+  }
+
+  const selectedReference =
+    await loadReferenceById(
+      selectedWork.referenceSetId
+    );
+
+  if (!selectedReference) {
+    alert(
+      "作品に紐づく設定資料を読み込めませんでした。"
+    );
+    return;
+  }
+
+  // 実際に作業する作品を切り替える
+  currentWorkId =
+    selectedWork.id;
+
+  // 実際に作業する設定資料を切り替える
+  currentReferenceId =
+    selectedReference.id;
+
+  currentReferenceTitle =
+    selectedReference.title;
+
+  // 読み込んだ設定資料本体を、
+  // 現在画面で使う配列へ入れる
+  folders =
+    selectedReference.folders ?? [];
+
+  basePages =
+    selectedReference.pages ?? [];
+
+  pages = basePages;
+
+  // 選択した作品の本文一覧へ切り替える
+  novels =
+    selectedWork.novels ?? [];
+
+  // 前の作品で開いていたページ・本文の選択を解除する
+  currentPageId = null;
+  currentNovelId = null;
+  currentDictionaryPage = null;
+
+  saveData();
+
+  startupScreen.classList.add("hidden");
+  appShell.classList.remove("hidden");
+
+  updatePaneGrid();
+  renderPageList();
+
+  sideInfo.innerHTML =
+    "辞書ページを選択してください。";
+
+  if (novels.length > 0) {
+    showNovel(novels[0].id);
+  } else {
+    titleInput.value = "";
+    bodyInput.value = "";
+  }
+
+  updateWritingStats();
+} // function openSelectedWork を閉じる
+
+
+continueWorkButton.addEventListener("click", () => {
+  openSelectedWork();
+});
+
+newWorkButton.addEventListener("click", () => {
+ if (!selectedStartupReferenceId) {
+      alert(
+        "先に設定資料を選択してください。"
+      );
+      return;
+    }
+
+    showInputModal(
+    "新しい作品を作る",
+    "作品名",
+    "",
+    (title) => {
+      const nowText =
+        new Date().toISOString();
+
+      const newWork = {
+        id: createDataId("work"),
+        title,// 新しく作った作品には、空の小説本文を1本入れておく。
+
+        // 起動画面で選択している設定資料へ作品を紐づける
+        referenceSetId:
+        selectedStartupReferenceId, 
+    // 本体を開いたときに「何も選ばれていない空画面」にならないようにするため。
+    novels: [
+      {
+      id: createPageId(),
+      title: "新規小説本文",
+      body: ""
+      }
+    ],
+    events: [],
+    flags: [],
+    folders: [],
+    pages: [],
+    annotations: [],
+    // 作品を作成した日時を、最終更新日時として保存する。
+    // まだ本文を書いていない作品でも、起動画面に作成時刻を表示できるようにする。
+    updatedAt: nowText
+  };
+
+  works.push(newWork);
+
+  selectedStartupWorkId = newWork.id;
+
+  saveData();
+  renderStartupWorkList();
+  renderStartupSelectedWork();
+});
+});
+
+openStartupProfileButton.addEventListener("click", () => {
+  const log = getTodayWritingLog();
+
+  const netChars =
+    (log.addedChars || 0) - (log.deletedChars || 0);
+
+showModal(
+  "執筆プロフィール",
+  `
+    <div class="startup-profile-modal-layout">
+  <div class="startup-profile-left">
+    <div class="startup-profile-summary">
+      <p>起動回数：${userData.stats.launchCount.toLocaleString()}回</p>
+      <p>今日の追加：${(log.addedChars || 0).toLocaleString()}文字</p>
+      <p>今日の削除：${(log.deletedChars || 0).toLocaleString()}文字</p>
+      <p>今日の増減：${netChars.toLocaleString()}文字</p>
+    </div>
+
+    <hr>
+
+    <div class="startup-profile-section">
+      <h3>活動カレンダー</h3>
+      <div id="startup-activity-grass"></div>
+    </div>
+  </div>
+
+  <div class="startup-profile-right">
+    <h3>活動レシート</h3>
+    <div id="startup-activity-receipt">
+      草をクリックすると、その日の記録が表示されます。
+    </div>
+  </div>
+</div>
+  `,
+  null
+);
+
+renderStartupActivityGrass();
+});
+
+renameWorkButton.addEventListener("click", () => {
+  const selectedWork =
+    works.find((work) => work.id === selectedStartupWorkId);
+
+  if (!selectedWork) return;
+
+  showInputModal(
+    "作品名を変更",
+    "新しい作品名",
+    selectedWork.title,
+    (newTitle) => {
+      selectedWork.title = newTitle;
+      selectedWork.updatedAt = new Date().toLocaleString();
+
+      saveData();
+      renderStartupWorkList();
+      renderStartupSelectedWork();
+    }
+  );
+});
+
+// 起動画面から、新しい設定資料を作る
+newReferenceButton.addEventListener(
+  "click",
+  () => {
+    showInputModal(
+      "新しい設定資料を作る",
+      "設定資料名",
+      "",
+      (title) => {
+        const now =
+          new Date().toISOString();
+
+        const referenceId =
+          createDataId("reference");
+
+        // 設定資料本体。
+        // references/reference-xxxx.json に保存される。
+        const newReference = {
+          id: referenceId,
+          title,
+
+          // 新規設定資料でも、すぐ辞書ページを作れるように
+          // 最初のフォルダを1つ用意する。
+          folders: [
+            {
+              id: createPageId(),
+              title: "設定資料",
+              order: 1,
+              collapsed: false
+            }
+          ],
+
+          pages: [],
+          events: [],
+          flags: [],
+
+          updatedAt: now
+        };
+
+        // 設定資料本体を個別JSONとして保存する。
+        saveReferenceById(
+          newReference
+        );
+
+        // 起動画面用の軽量な一覧にも追加する。
+        referenceIndex.referenceSets.push({
+          id: referenceId,
+          title,
+          order:
+            referenceIndex.referenceSets.length + 1,
+          updatedAt: now
+        });
+
+        saveReferenceIndex(
+          referenceIndex
+        );
+
+        // 今作った設定資料を、起動画面上で選択状態にする。
+        selectedStartupReferenceId =
+          referenceId;
+
+        // 新しい設定資料にはまだ作品がないので、
+        // 作品の選択をいったん解除する。
+        selectedStartupWorkId =
+          null;
+
+        renderStartupReferenceList();
+        renderStartupWorkList();
+        renderStartupSelectedWork();
+      }
+    );
+  }
+);
 
 
 
@@ -2057,7 +6279,7 @@ function syncDictionaryEditorToPage() {
   currentDictionaryPage.body =
     dictionaryEditor.state.doc.toString();
 
-  ensurePageLineIds(currentDictionaryPage);
+  recordDictionaryEdit();
 
   saveData();
   renderPageList();
@@ -2069,8 +6291,22 @@ function initNovelEditor() {
     doc: "",
     parent: editorElement,
     extensions: [
-      EditorView.lineWrapping
-    ],
+      history(),
+
+      keymap.of([
+      ...historyKeymap,
+    {
+      key: "Ctrl-Shift-z",
+      run: redo
+    },
+    {
+      key: "Mod-Shift-z",
+      run: redo
+    }
+  ]),
+
+    EditorView.lineWrapping
+  ],
 
     dispatch: (transaction) => {
       novelEditor.update([transaction]);
@@ -2079,9 +6315,17 @@ function initNovelEditor() {
         const novel = getCurrentNovel();
         if (!novel) return;
 
+        const beforeLength = novel.body.length;
+
         novel.body = novelEditor.state.doc.toString();
+
+        const afterLength = novel.body.length;
+
+        recordWritingChange(beforeLength, afterLength);
+
         bodyInput.value = novel.body;
 
+        
         saveData();
         updateNovelCharCount();
       }
@@ -2089,13 +6333,336 @@ function initNovelEditor() {
   });
 }
 
+//時系列
+function initTimelineEditor(event) {
+  const timelineEditorElement =
+    document.getElementById("timeline-editor");
+
+  if (!timelineEditorElement) return;
+
+  if (timelineEditor) {
+    timelineEditor.destroy();
+    timelineEditor = null;
+  }
+
+  currentTimelineEvent = event;
+
+  timelineEditor = new EditorView({
+    doc: event.body || "",
+    parent: timelineEditorElement,
+    extensions: [
+      history(),
+
+      keymap.of([
+        ...historyKeymap,
+        {
+          key: "Ctrl-Shift-z",
+          run: redo
+        },
+        {
+          key: "Mod-Shift-z",
+          run: redo
+        }
+      ]),
+
+      EditorView.lineWrapping
+    ],
+
+    dispatch: (transaction) => {
+      timelineEditor.update([transaction]);
+
+      if (transaction.docChanged) {
+        currentTimelineEvent.body =
+          timelineEditor.state.doc.toString();
+
+        recordTimelineEdit();
+        saveData();
+      }
+    }
+  });
+}
+
+// 辞書見出しの「# 」を、
+// 画面上では「▼ 」「▶ 」として表示する
+class DictionaryHeadingToggleWidget
+  extends WidgetType {
+
+  constructor(
+    lineFrom,
+    isFolded,
+    headingLevel
+  ) {
+    super();
+
+    this.lineFrom =
+      lineFrom;
+
+    this.isFolded =
+      isFolded;
+
+    this.headingLevel =
+      headingLevel;
+  }
+
+  // 前回と同じ見た目なら、
+  // CodeMirrorがDOMを作り直さず再利用できる
+eq(other) {
+  return (
+    other.lineFrom ===
+      this.lineFrom &&
+    other.isFolded ===
+      this.isFolded &&
+    other.headingLevel ===
+      this.headingLevel
+  );
+}
+
+  toDOM(view) {
+    const toggle =
+      document.createElement(
+        "span"
+      );
+
+    toggle.className =
+      "cm-dictionary-heading-toggle";
+
+    // CSSから見出し階層を判別できるようにする
+    toggle.dataset.headingLevel =
+      String(
+        this.headingLevel
+      );
+
+    toggle.textContent =
+      this.isFolded
+        ? "▶ "
+        : "▼ ";
+
+    toggle.title =
+      this.isFolded
+        ? "クリックして開く"
+        : "クリックして閉じる";
+
+    // mousedownを使うことで、
+    // CodeMirrorが先にカーソルを動かすのを防ぐ
+    toggle.addEventListener(
+      "mousedown",
+      (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        // toggleFoldは現在のカーソル行を対象にするため、
+        // クリックした見出し行へカーソルを移す
+        view.dispatch({
+          selection: {
+            anchor:
+              this.lineFrom
+          }
+        });
+
+        toggleFold(
+          view
+        );
+
+        view.focus();
+      }
+    );
+
+    return toggle;
+  }
+}
+
+// 「# 見出し」の「# 」部分を、
+// 開閉状態に応じた三角Widgetへ置き換える
+function buildDictionaryHeadingDecorations(
+  state
+) {
+  const decorations = [];
+
+  // 現在閉じられている範囲を取得する
+  const currentFoldedRanges =
+    foldedRanges(
+      state
+    );
+
+  for (
+    let lineNumber = 1;
+    lineNumber <=
+      state.doc.lines;
+    lineNumber++
+  ) {
+    const line =
+      state.doc.line(
+        lineNumber
+      );
+
+    const headingMatch =
+    line.text.match(
+      /^(#{1,6})\s+/
+    );
+
+    // 「# 半角スペース」で始まる行だけ対象
+    if (!headingMatch) {
+      continue;
+    }
+
+    let isFolded = false;
+
+    // 今のfoldServiceでは、
+    // 折りたたみ範囲が見出し行末から始まる
+    currentFoldedRanges.between(
+      line.to,
+      Math.min(
+        line.to + 1,
+        state.doc.length
+      ),
+      (from) => {
+        if (
+          from === line.to
+        ) {
+          isFolded = true;
+        }
+      }
+    );
+
+    const markerLength =
+      headingMatch[0].length;
+
+    decorations.push(
+      Decoration.replace({
+        widget:
+          new DictionaryHeadingToggleWidget(
+            line.from,
+            isFolded,
+            headingMatch[1].length
+          ),
+
+        // Widgetの前後へ入力した文字を
+        // 見出し記号の一部にしない
+        inclusive: false
+      }).range(
+        line.from,
+        line.from +
+          markerLength
+      )
+    );
+  }
+
+  return Decoration.set(
+    decorations,
+    true
+  );
+}
+
+// 「# 見出し」から次の「# 見出し」の直前までを、
+// 折りたたみ可能な範囲としてCodeMirrorへ伝える
+// Markdown風の見出し階層に合わせて、
+// 現在の見出しより下位の範囲を折りたたむ
+function dictionaryHeadingFoldService(
+  state,
+  lineStart,
+  lineEnd
+) {
+  const headingLine =
+    state.doc.lineAt(lineStart);
+
+  // # ～ ###### の見出しに対応する
+  // 例：
+  // # 大見出し
+  // ## 中見出し
+  // ### 小見出し
+  const headingMatch =
+    headingLine.text.match(
+      /^(#{1,6})\s+/
+    );
+
+  if (!headingMatch) {
+    return null;
+  }
+
+  // # の個数が見出しレベル
+  const currentLevel =
+    headingMatch[1].length;
+
+  // 次の「同じ階層または上位階層」の
+  // 見出し直前までを閉じる
+  let foldTo =
+    state.doc.length;
+
+  for (
+    let lineNumber =
+      headingLine.number + 1;
+
+    lineNumber <= state.doc.lines;
+
+    lineNumber++
+  ) {
+    const nextLine =
+      state.doc.line(
+        lineNumber
+      );
+
+    const nextHeadingMatch =
+      nextLine.text.match(
+        /^(#{1,6})\s+/
+      );
+
+    // 普通の本文なら、そのまま次へ進む
+    if (!nextHeadingMatch) {
+      continue;
+    }
+
+    const nextLevel =
+      nextHeadingMatch[1].length;
+
+    /*
+      現在が ## の場合：
+
+      ### は配下なので閉じる
+      ##  は同階層なので、そこで終了
+      #   は上位階層なので、そこで終了
+    */
+    if (
+      nextLevel <= currentLevel
+    ) {
+      foldTo =
+        nextLine.from - 1;
+
+      break;
+    }
+  }
+
+  // 見出しの下に閉じられる内容がなければ、
+  // 折りたたみ対象にしない
+  if (
+    foldTo <= headingLine.to
+  ) {
+    return null;
+  }
+
+  return {
+    // 見出し行そのものは表示したまま
+    from:
+      headingLine.to,
+
+    // 配下の本文・下位見出しだけ隠す
+    to:
+      foldTo
+  };
+}
+
 //辞書ページ用
+// 辞書ページ用CodeMirrorを作る
 function initDictionaryEditor(page) {
   const dictionaryEditorElement =
-    document.getElementById("dictionary-editor");
+    document.getElementById(
+      "dictionary-editor"
+    );
 
-  if (!dictionaryEditorElement) return;
+  if (!dictionaryEditorElement) {
+    return;
+  }
 
+  // 前の辞書ページ用Editorが残っていたら破棄する
   if (dictionaryEditor) {
     dictionaryEditor.destroy();
     dictionaryEditor = null;
@@ -2103,67 +6670,171 @@ function initDictionaryEditor(page) {
 
   currentDictionaryPage = page;
 
-  dictionaryEditor = new EditorView({
-  doc: page.body,
-  parent: dictionaryEditorElement,
-  extensions: [
-  EditorView.lineWrapping,
+  // 古いデータでlineIdsが足りない場合に備えて、
+  // Editorを作る前に現在の行数へ揃える
+  ensurePageLineIds(page);
 
-  EditorView.decorations.compute(
-    ["doc"],
-    (state) => {
-      return buildWikiLinkDecorations(state);
-    }
-  ),
+  dictionaryEditor =
+    new EditorView({
+      doc: page.body,
 
-  EditorView.decorations.compute(
-    ["doc"],
-    (state) => {
-      return buildDictionaryDecorations({
+      parent:
+        dictionaryEditorElement,
+
+      extensions: [
+        history(),
+
+        // 「# 見出し」を折りたたみ対象として登録する
+        foldService.of(
+          dictionaryHeadingFoldService
+        ),
+
+        // 折りたたんだ範囲の表示
+        codeFolding({
+          placeholderText: " … "
+        }),
+
+        keymap.of([
+          ...historyKeymap,
+          ...foldKeymap,
+
+          {
+            key: "Ctrl-Shift-z",
+            run: redo
+          },
+          {
+            key: "Mod-Shift-z",
+            run: redo
+          }
+        ]),
+
+        EditorView.lineWrapping,
+
+        // 「# 」を「▼ 」「▶ 」へ置き換える
+        // 文書だけでなく、折りたたみ状態が変わった時も再計算する
+          EditorView.decorations.compute(
+        [
+          "doc",
+          foldState
+        ],
+        (state) => {
+        return buildDictionaryHeadingDecorations(
         state
-      });
+      );
     }
   ),
-  EditorView.domEventHandlers({
-  click: (event, view) => {
-    const target = event.target;
 
-    if (!(target instanceof HTMLElement)) {
-      return false;
-    }
+        // Wikiリンクの見た目を作る
+        EditorView.decorations.compute(
+          ["doc"],
+          (state) => {
+            return buildWikiLinkDecorations(
+              state
+            );
+          }
+        ),
 
-    const link = target.closest(".cm-wiki-link");
+        // 出典・注釈・＋ボタンを行間へ表示する
+        EditorView.decorations.compute(
+          ["doc"],
+          (state) => {
+            return buildDictionaryDecorations({
+              state
+            });
+          }
+        ),
 
-    if (!link) {
-      return false;
-    }
+        // Wikiリンクをクリックしたときの処理
+        EditorView.domEventHandlers({
+          click: (event) => {
+            const target =
+              event.target;
 
-    const pageTitle = link.dataset.title;
-    if (!pageTitle) return false;
+            if (
+              !(
+                target instanceof
+                HTMLElement
+              )
+            ) {
+              return false;
+            }
 
-    const targetPage =
-      pages.find((page) => page.title === pageTitle);
+            const link =
+              target.closest(
+                ".cm-wiki-link"
+              );
 
-    if (!targetPage) {
-      alert(`「${pageTitle}」のページはまだありません`);
-      return true;
-    }
+            if (!link) {
+              return false;
+            }
 
-    showPage(targetPage.id);
-    return true;
-  }
-})
-],
+            const pageTitle =
+              link.dataset.title;
 
-  dispatch: (transaction) => {
-    dictionaryEditor.update([transaction]);
+            if (!pageTitle) {
+              return false;
+            }
 
-    if (transaction.docChanged) {
-      syncDictionaryEditorToPage();
-    }
-  }
-  });
+            const targetPage =
+              pages.find((page) => {
+                return (
+                  page.title ===
+                  pageTitle
+                );
+              });
+
+            if (!targetPage) {
+              alert(
+                `「${pageTitle}」のページはまだありません`
+              );
+
+              return true;
+            }
+
+            showPage(
+              targetPage.id
+            );
+
+            return true;
+          }
+        })
+      ],
+
+      // CodeMirrorで文字・改行が変更されたときの処理
+      dispatch: (transaction) => {
+        if (
+          transaction.docChanged &&
+          currentDictionaryPage
+        ) {
+          // 変更前後の位置を使い、
+          // 出典・注釈用の行IDを先に更新する
+          updatePageLineIdsFromTransaction(
+            currentDictionaryPage,
+            transaction
+          );
+
+          // Decorationの再計算より先に、
+          // page.bodyも変更後の本文へ更新する
+          currentDictionaryPage.body =
+            transaction.newDoc.toString();
+        }
+
+        // CodeMirror本体へ変更を反映する
+        dictionaryEditor.update([
+          transaction
+        ]);
+
+        if (
+          transaction.docChanged
+        ) {
+          recordDictionaryEdit();
+          saveData();
+          renderPageList();
+        }
+      }
+    });
 }
+
 
 // CodeMirrorの行間に表示する「注釈っぽい箱」
 class AnnotationWidget extends WidgetType {
@@ -2320,7 +6991,7 @@ class LineActionMenuWidget extends WidgetType {
 
     const sourceButton = document.createElement("button");
     sourceButton.className = "cm-line-menu-button";
-    sourceButton.textContent = "原作出典";
+    sourceButton.textContent = "設定資料出典";
 
     sourceButton.addEventListener("click", () => {
       showSourceForm(this.page, {
@@ -2493,24 +7164,50 @@ if (
 
   const sources = page.sources || [];
 
-  const lineSources = sources.filter((sourceItem) => {
+  const lineSources =
+  sources.filter((sourceItem) => {
+    // 新しいデータはlineIdだけで判定する
+    if (sourceItem.lineId) {
+      return (
+        sourceItem.lineId ===
+        lineId
+      );
+    }
+
+    // lineIdを持たない古いデータだけ、
+    // lineIndexを救済用に使う
     return (
-      sourceItem.lineId === lineId ||
-      sourceItem.lineIndex === index
+      sourceItem.lineIndex ===
+      index
     );
   });
 
   const annotations =
   dictionaryLayerMode === "overlay"
-    ? work.annotations.filter((annotation) => {
-        return (
-          annotation.pageId === page.id &&
-          (
-            annotation.lineId === lineId ||
-            annotation.lineIndex === index
-          )
-        );
-      })
+    ? work.annotations.filter(
+        (annotation) => {
+          if (
+            annotation.pageId !==
+            page.id
+          ) {
+            return false;
+          }
+
+          // 新しいデータはlineIdだけで判定する
+          if (annotation.lineId) {
+            return (
+              annotation.lineId ===
+              lineId
+            );
+          }
+
+          // 古いデータだけlineIndexで救済する
+          return (
+            annotation.lineIndex ===
+            index
+          );
+        }
+      )
     : [];
 
 lineSources.forEach((sourceItem) => {
@@ -2584,4 +7281,35 @@ if (novels.length > 0) {
 
 updatePaneMenu();
 
+userData.stats.launchCount += 1;
+recordTodayLaunch();
+saveUserData();
+setupProgressEvents();
+
+renderStartupScreen();
+
+// 起動画面に、保存されている設定資料一覧を表示する。
+renderStartupReferenceList();
+
+// 選択中の設定資料に属する作品一覧を表示する。
+renderStartupWorkList();
+
+renderStartupSelectedWork();
+
 console.log("Fanfic Studio 起動！");
+console.log(
+    window.fanfic.hello()
+);
+
+// v0.8.0保存方式の動作確認用。
+// テスト完了後に削除する。
+window.fanficStorageTest = {
+  saveReferenceIndex,
+  loadReferenceIndex,
+  saveWorkIndex,
+  loadWorkIndex,
+  saveReferenceById,
+  loadReferenceById,
+  saveWorkById,
+  loadWorkById
+};

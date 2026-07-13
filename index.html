@@ -6,31 +6,194 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+<div id="startup-screen" class="startup-screen">
+  <div class="startup-card startup-card-wide">
+
+    <div class="startup-title-row">
+      <h1>Fanfic Studio</h1>
+
+      <div class="dropdown startup-menu-wrapper">
+        <button
+          id="startup-menu-button"
+          class="startup-menu-button"
+          aria-label="メニュー"
+        >☰</button>
+
+        <div id="startup-menu" class="dropdown-menu startup-menu hidden">
+          <button id="export-full-backup-button">全データバックアップ</button>
+          <button id="import-full-backup-button">バックアップから復元</button>
+        </div>
+      </div>
+    </div>
+
+    <input id="import-full-backup-file" type="file" accept=".json" hidden>
+
+    <div class="startup-layout">
+
+    <section class="startup-left">
+      <h2>設定資料</h2>
+
+      <button
+        id="new-reference-button"
+        class="startup-sub-button"
+      >
+        ＋ 新しい設定資料を作る
+      </button>
+
+      <!--
+        referenceIndex.json に保存されている
+        設定資料一覧を、JavaScriptでここへ表示する。
+      -->
+      <div
+        id="startup-reference-list"
+        class="startup-work-list"
+      ></div>
+
+      <h2>作品一覧</h2>
+
+        <!-- 起動画面から新しい作品を作るための入口。
+        作品を増やせるようにすると、作品一覧のスクロール確認もしやすくなる。 -->
+        <button
+        id="new-work-button"
+        class="startup-sub-button"
+        >
+          ＋ 新しい作品を作る
+      </button>
+
+      <button
+        id="open-startup-profile-button"
+        class="startup-sub-button"
+        >
+          執筆プロフィール
+        </button>
+
+        <!-- JSで works の作品ボタンをここに並べる。 -->
+        <div
+          id="startup-work-list"
+          class="startup-work-list"
+        ></div>
+      </section> <!-- startup-left を閉じる -->
+
+      <section class="startup-right">
+        <div
+          id="startup-last-work-card"
+          class="startup-last-work-card"
+        >
+          <h2>選択中の作品</h2>
+
+          <div id="startup-last-work-title">
+            作品なし
+          </div>
+
+          <button
+            id="rename-work-button"
+            class="startup-sub-button"
+          >
+            ✎ 作品名を変更
+          </button>
+
+          <div class="startup-work-meta">
+          <div>
+            総文字数：
+          <span id="startup-work-total-chars">0</span>文字
+        </div>
+
+        <div>
+          最終更新：
+        <span id="startup-work-updated-at">未記録</span>
+        </div>
+        </div>
+
+          <button
+            id="continue-work-button"
+            class="startup-main-button"
+          >
+            この作品を書き始める
+          </button>
+        </div>
+      </section> <!-- startup-right を閉じる -->
+
+    </div> <!-- startup-layout を閉じる -->
+
+  </div> <!-- startup-card を閉じる -->
+</div> <!-- startup-screen を閉じる -->
   
+<div id="app-shell" class="app-shell hidden">
+
 <header class="top-bar">
+  <div class="top-title-area">
+  <div class="dropdown">
+    <button
+      id="app-menu-button"
+      class="top-menu-button"
+      aria-label="アプリメニュー"
+    >
+      ☰
+    </button>
+
+    <div id="app-menu" class="dropdown-menu hidden">
+      <button id="back-to-startup-button">
+        作品一覧へ戻る
+      </button>
+
+      <hr class="menu-divider">
+
+      <button id="app-import-toggle-button" class="menu-parent-button">
+        読み込み ▼
+      </button>
+
+    <div id="app-import-section" class="menu-section hidden">
+      <button id="app-import-base-button">
+        設定資料読み込み
+      </button>
+
+      <button id="app-import-work-button">
+        作品読み込み
+      </button>
+    </div>
+
+    <button id="app-export-toggle-button" class="menu-parent-button">
+      書き出し ▼
+    </button>
+
+    <div id="app-export-section" class="menu-section hidden">
+      <button id="app-export-base-button">
+        設定資料書き出し
+      </button>
+
+      <button id="app-export-work-button">
+        作品書き出し
+      </button>
+
+      <button id="app-export-current-novel-text-button">
+        現在の本文をtxt書き出し
+      </button>
+
+      <button id="app-export-all-novels-text-button">
+        全本文をまとめてtxt書き出し
+      </button>
+    </div>
+
+    <hr class="menu-divider">
+
+    <button disabled>
+      ユーザー設定（準備中）
+    </button>
+    </div>
+  </div>
+
   <h1>Fanfic Studio</h1>
+</div>
 
 <div class="top-actions">
+  <div class="save-status-box">
     <span id="save-status" class="save-status">● 保存済み</span>
-  <button id="layer-toggle-button" class="top-button">原作のみ</button>
-
-  <div class="dropdown">
-    <button id="import-button" class="top-button">読み込み</button>
-    <div id="import-menu" class="dropdown-menu hidden">
-      <button id="import-base-button">原作読み込み</button>
-      <button id="import-work-button">作品読み込み</button>
-    </div>
+    <span id="last-saved-at" class="last-saved-at">最終保存：未保存</span>
   </div>
-
-  <div class="dropdown">
-    <button id="export-button" class="top-button">書き出し</button>
-    <div id="export-menu" class="dropdown-menu hidden">
-      <button id="export-base-button">原作書き出し</button>
-      <button id="export-work-button">作品書き出し</button>
-      <button id="export-current-novel-text-button">現在の本文をtxt書き出し</button>
-      <button id="export-all-novels-text-button">全本文をまとめてtxt書き出し</button>
-    </div>
-  </div>
+  <button id="layer-toggle-button" class="top-button">
+    設定資料のみ
+  </button>
 
 </div>
  </header>
@@ -42,7 +205,6 @@
 <div class="right-toggle-container">
   <button id="toggle-right-pane-button">▶</button>
 </div>
- 
 
 
   <main class="app-layout">
@@ -51,21 +213,49 @@
 
 <div class="sidebar-actions">
 
+  <div class="dictionary-add-menu">
   <button
-    id="new-folder-button"
-    class="new-page-button"
-    title="新規フォルダ"
-  >
-    📁
+  id="new-folder-button"
+  class="new-page-button"
+>
+  📁＋
   </button>
 
-  <button
-    id="new-page-button"
-    class="new-page-button"
-    title="新規辞書ページ"
+  <div
+    id="new-folder-menu"
+    class="dictionary-add-dropdown hidden"
   >
-    📖
-  </button>
+    <button id="new-base-folder-button">
+      設定資料に追加
+    </button>
+
+    <button id="new-work-folder-button">
+      この作品だけに追加
+    </button>
+  </div>
+</div>
+
+  <div class="dictionary-add-menu">
+  <button
+  id="new-page-button"
+  class="new-page-button"
+>
+  📖＋
+</button>
+
+  <div
+    id="new-page-menu"
+    class="dictionary-add-dropdown hidden"
+  >
+    <button id="new-base-page-button">
+      設定資料に追加
+    </button>
+
+    <button id="new-work-page-button">
+      この作品だけに追加
+    </button>
+  </div>
+</div>
 
   <button
     id="new-novel-button"
@@ -87,73 +277,346 @@
 <div id="left-resizer"></div>
 
 <section class="main-page">
-  <div class="pane-menu">
-  <button
-    id="delete-novel-button"
-    class="icon-delete-button"
-    title="この本文を削除"
->
-    🗑
-  </button>
-  </div>
 
-  <div class="main-tabs">
-    <button class="main-tab active" data-tab="novel">本文</button>
-    <button class="main-tab" data-tab="timeline">時系列</button>
-    <button class="main-tab" data-tab="relation">相関図</button>
-    <button class="main-tab" data-tab="flags">フラグ</button>
-  </div>
+<div class="main-tabs">
+  <button
+    class="main-tab active"
+    data-tab="novel"
+  >
+    本文
+  </button>
+
+  <button
+    class="main-tab"
+    data-tab="progress"
+  >
+    進捗
+  </button>
+
+  <button
+    class="main-tab"
+    data-tab="profile"
+  >
+    執筆プロフィール
+  </button>
+</div>
 
   <div id="novel-panel" class="tab-panel">
-    <input id="page-title" class="page-title-input" value="">
-    <div id="page-type" class="page-type"></div>
+  <div class="novel-panel-actions">
+    <button
+      id="delete-novel-button"
+      class="icon-delete-button"
+      title="この本文を削除"
+    >
+      🗑
+    </button>
+  </div>
 
-    <div class="novel-toolbar">
-      <button id="undo-button">↶</button>
-      <button id="redo-button">↷</button>
-      <span id="novel-char-count">0文字</span>
+  <input id="page-title" class="page-title-input" value="">
+  <div id="page-type" class="page-type"></div>
+
+  <div class="novel-toolbar">
+    <button id="undo-button">↶</button>
+    <button id="redo-button">↷</button>
+    <span id="novel-char-count">0文字</span>
+  </div>
+
+  <textarea id="page-body"></textarea>
+  <div id="editor"></div>
+  </div>
+
+<div id="progress-panel" class="tab-panel hidden">
+  <h2>進捗</h2>
+
+  <section class="progress-block">
+    <h3>作品</h3>
+
+    <div class="writing-stats-panel">
+      <div>現在の本文：<span id="current-novel-char-count">0</span>文字</div>
+      <div>作品全体：<span id="total-work-char-count">0</span>文字</div>
     </div>
 
-    <textarea id="page-body"></textarea>
-    <div id="editor"></div>
+    <div class="progress-section">
+      <label class="goal-toggle-label">
+        <input id="use-goal-checkbox" type="checkbox">
+        目標文字数を使う
+      </label>
+
+      <div id="goal-settings" class="goal-settings hidden">
+        <label>
+          目標文字数
+          <input id="goal-char-input" type="number" min="0" step="1000">
+        </label>
+
+        <div class="goal-result">
+          達成率：<span id="goal-progress-percent">0</span>%
+        </div>
+
+        <div class="goal-result">
+          あと：<span id="goal-remaining-chars">0</span>文字
+        </div>
+
+        <div class="goal-bar">
+          <div id="goal-bar-fill"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="progress-section">
+      <h3>本文ごとの文字数</h3>
+      <div id="novel-char-list"></div>
+    </div>
+  </section>
+</div>
+
+<div id="profile-panel" class="tab-panel hidden">
+  <h2>執筆プロフィール</h2>
+
+  <section class="progress-block">
+    <h3>今日の記録</h3>
+
+    <div class="writing-stats-panel">
+      <div>起動回数：<span id="launch-count">0</span>回</div>
+      <div>今日の追加：<span id="today-added-chars">0</span>文字</div>
+      <div>今日の削除：<span id="today-deleted-chars">0</span>文字</div>
+      <div>今日の増減：<span id="today-net-chars">0</span>文字</div>
+    </div>
+
+<div class="progress-section">
+  <h3>文字数グラフ</h3>
+
+  <div class="chart-toolbar">
+    <label>
+      表示期間
+      <select id="writing-chart-range">
+        <option value="7">過去7日</option>
+        <option value="30">過去30日</option>
+        <option value="365">過去365日</option>
+        <option value="all">全期間</option>
+      </select>
+    </label>
   </div>
 
-  <div id="timeline-panel" class="tab-panel hidden">
-  <h2>時系列</h2>
-  <button id="new-event-button" class="new-page-button">＋ イベント追加</button>
-  <div id="timeline-list"></div>
+  <div class="writing-chart">
+    <canvas id="writing-chart"></canvas>
+  </div>
+</div>
+
+<div class="progress-section">
+  <div class="activity-grass-header">
+    <button
+      id="activity-prev-month-button"
+      class="side-button"
+    >
+      ◀
+    </button>
+
+    <h3 id="activity-month-label">
+      活動カレンダー
+    </h3>
+
+    <button
+      id="activity-next-month-button"
+      class="side-button"
+    >
+      ▶
+    </button>
   </div>
 
-  <div id="relation-panel" class="tab-panel hidden">
-    <h2>相関図</h2>
-    <p>ここに相関図機能を作ります。</p>
+  <div
+    id="activity-grass"
+    class="activity-grass"
+  ></div>
+</div>
+
+<div class="progress-section">
+  <h3>活動レシート</h3>
+
+  <div id="activity-receipt" class="activity-receipt">
+    草をクリックすると、その日の記録が表示されます。
   </div>
 
-  <div id="flags-panel" class="tab-panel hidden">
-    <h2>フラグ管理</h2>
+  <button
+    id="save-receipt-image-button"
+    class="side-button"
+  >
+    🖼 レシートを画像保存
+  </button>
+</div>
 
-    <button id="new-flag-button" class="new-page-button">＋ フラグ追加</button>
-    <div id="flag-list"></div>
-</div></section>
+    <div class="progress-section">
+      <h3>過去7日分の執筆ログ</h3>
+      <div id="writing-log-list"></div>
+    </div>
+  </section>
+</div>
+
+</section>
 
 <div id="right-resizer"></div>
 
 <aside class="detail">
-  <div class="pane-menu">
-  <button
-    id="delete-page-button"
-    class="icon-delete-button"
-    title="この辞書ページを削除"
->
-    🗑
-  </button>
+
+  <!-- 右ペインで表示する資料を切り替えるタブ -->
+  <div class="right-tabs">
+    <button
+      class="right-tab active"
+      data-right-tab="dictionary"
+    >
+      辞書
+    </button>
+
+    <button
+      class="right-tab"
+      data-right-tab="timeline"
+    >
+      時系列
+    </button>
+
+    <button
+      class="right-tab"
+      data-right-tab="flags"
+    >
+      TODO
+    </button>
   </div>
 
-  <div id="side-info">左の項目をクリックしてください。</div>
+  <!-- 辞書パネル -->
+  <section
+    id="right-dictionary-panel"
+    class="right-tab-panel"
+  >
+    <div class="pane-menu">
+      <button
+        id="delete-page-button"
+        class="icon-delete-button"
+        title="この辞書ページを削除"
+      >
+        🗑
+      </button>
+    </div>
+
+    <div id="side-info">
+      左の項目をクリックしてください。
+    </div>
+  </section>
+
+  <!-- 時系列パネル -->
+<!-- 右ペイン：時系列 -->
+<section
+  id="timeline-panel"
+  class="right-tab-panel hidden"
+>
+  <!-- 上段：タイトルと操作ボタン -->
+  <div class="timeline-right-header">
+    <h2>時系列</h2>
+
+    <div class="timeline-toolbar">
+      <button
+        id="timeline-detail-view-button"
+        class="timeline-view-button active"
+      >
+        詳細
+      </button>
+
+      <button
+        id="timeline-overview-view-button"
+        class="timeline-view-button"
+      >
+        全体
+      </button>
+
+      <button
+        id="new-event-button"
+        class="timeline-add-button"
+        title="イベントを追加"
+      >
+        ＋
+      </button>
+    </div>
+  </div>
+
+  <!-- 詳細表示 -->
+  <div
+    id="timeline-detail-layout"
+    class="timeline-right-layout"
+  >
+    <!-- 中段：イベント名だけの一覧 -->
+    <section class="timeline-right-list-area">
+      <div class="timeline-right-list-header">
+        <span>イベント一覧</span>
+
+        <button
+          id="toggle-timeline-side-button"
+          class="timeline-list-toggle"
+          title="イベント一覧を開閉"
+        >
+          ▲
+        </button>
+      </div>
+
+      <div
+        id="timeline-list"
+        class="timeline-right-list"
+      ></div>
+    </section>
+
+    <!-- 下段：選択イベントの詳細 -->
+    <section
+      id="timeline-detail-panel"
+      class="timeline-detail-panel timeline-right-detail"
+    >
+      <p class="empty-message">
+        上の一覧からイベントを選択してください。
+      </p>
+    </section>
+  </div>
+
+  <!-- 全体表示 -->
+  <div
+    id="timeline-overview-panel"
+    class="timeline-overview-panel timeline-right-overview hidden"
+  ></div>
+</section>
+
+  <!-- TODO・作者メモパネル -->
+  <section
+    id="flags-panel"
+    class="right-tab-panel hidden"
+  >
+    <h2>TODO・作者メモ</h2>
+
+    <button
+      id="new-flag-button"
+      class="new-page-button"
+    >
+      ＋ TODO追加
+    </button>
+
+    <div id="flag-list"></div>
+  </section>
+
 </aside>
   </main>
+</div>
 
-  <script type="module" src="/script.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script type="module" src="./script.js"></script>
   
+  <div id="modal-overlay" class="hidden">
+  <div id="modal-window">
+
+    <h2 id="modal-title"></h2>
+
+    <div id="modal-body"></div>
+
+    <div class="modal-buttons">
+      <button id="modal-cancel">キャンセル</button>
+      <button id="modal-ok">OK</button>
+    </div>
+
+  </div>
+</div>
+
 </body>
 </html>

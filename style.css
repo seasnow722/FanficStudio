@@ -207,6 +207,37 @@ textarea {
   color: white;
 }
 
+.top-title-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.top-menu-button {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: #c49a6c;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.top-menu-button:hover {
+  background: #a87f52;
+}
+
+.dropdown-menu button:disabled {
+  color: #aaa;
+  cursor: not-allowed;
+}
+
+.top-title-area .dropdown-menu {
+  left: 0;
+  right: auto;
+}
+
 .top-actions {
   display: flex;
   gap: 8px;
@@ -223,6 +254,25 @@ textarea {
 
 .top-button:hover {
   background: #a87f52;
+}
+
+.menu-divider {
+  margin: 6px 0;
+  border: none;
+  border-top: 1px solid #ddd0bd;
+}
+
+.menu-parent-button {
+  font-weight: bold;
+}
+
+.menu-section {
+  padding-left: 12px;
+  margin-bottom: 4px;
+}
+
+.menu-section button {
+  font-size: 13px;
 }
 
 .side-input {
@@ -674,12 +724,6 @@ textarea {
   flex-direction: column;
 }
 
-#editor {
-  flex: 1;
-  min-height: 500px;
-  overflow: hidden;
-}
-
 #editor .cm-editor {
   height: 100%;
 }
@@ -1095,4 +1139,1867 @@ body {
 
 .cm-wiki-link:hover {
   background: #d8c3a5;
+}
+
+#modal-overlay{
+  position:fixed;
+  inset:0;
+
+  background:rgba(0,0,0,.4);
+
+  display:flex;
+  justify-content:center;
+  align-items:center;
+
+  z-index:9999;
+}
+
+#modal-window{
+
+  width:520px;
+
+  max-width:90%;
+
+  background:white;
+
+  border-radius:12px;
+
+  padding:20px;
+
+  box-shadow:0 8px 24px rgba(0,0,0,.25);
+
+}
+
+.modal-buttons{
+
+  display:flex;
+
+  justify-content:flex-end;
+
+  gap:8px;
+
+  margin-top:18px;
+
+}
+
+.hidden{
+
+  display:none!important;
+
+}
+
+.writing-stats-panel {
+  display: flex;
+  gap: 16px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background: #fffaf3;
+  border: 1px solid #ddd0bd;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #5a4635;
+}
+
+#editor {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#timeline-panel,
+#flags-panel,
+#relation-panel,
+#progress-panel,
+#profile-panel {
+  overflow-y: auto;
+}
+
+#page-body {
+  display: none !important;
+}
+
+#novel-panel {
+  overflow: hidden;
+}
+
+#editor {
+  flex: 1;
+  min-height: 0;
+}
+
+#editor .cm-editor {
+  height: 100%;
+}
+
+#novel-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#editor {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  overflow: hidden;
+  background: #fffaf3;
+  border: 1px solid #ddd0bd;
+  border-radius: 8px;
+}
+
+#editor .cm-editor {
+  height: 100%;
+  min-height: 0;
+}
+
+#editor .cm-scroller {
+  height: 100%;
+  overflow: auto;
+}
+
+#progress-panel.hidden {
+  display: none !important;
+}
+
+.progress-section {
+  margin-top: 16px;
+  padding: 12px;
+  background: #fffaf3;
+  border: 1px solid #ddd0bd;
+  border-radius: 8px;
+}
+
+.progress-section h3 {
+  margin-top: 0;
+}
+
+.novel-char-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 0;
+  border-bottom: 1px dashed #ddd0bd;
+}
+
+.novel-char-row:last-child {
+  border-bottom: none;
+}
+
+.novel-char-title {
+  font-weight: bold;
+}
+
+.novel-char-count {
+  color: #5a4635;
+  white-space: nowrap;
+}
+
+.goal-toggle-label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+}
+
+.goal-settings {
+  margin-top: 8px;
+}
+
+.goal-settings input {
+  margin-left: 8px;
+  padding: 4px 8px;
+}
+
+.goal-result {
+  margin-top: 8px;
+  font-weight: bold;
+}
+
+.goal-bar {
+  margin-top: 8px;
+  width: 100%;
+  height: 14px;
+  background: #ead7b7;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+#goal-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: #c49a6c;
+}
+
+.writing-log-row {
+  display: grid;
+  grid-template-columns: 120px 1fr 1fr 1fr;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px dashed #ddd0bd;
+  font-size: 14px;
+}
+
+.writing-log-row:last-child {
+  border-bottom: none;
+}
+
+.writing-log-date {
+  font-weight: bold;
+  color: #5a4635;
+}
+
+.writing-chart {
+  height: 260px;
+  background: #fffaf3;
+}
+
+.progress-block {
+  margin-bottom: 20px;
+  padding: 12px;
+  background: #f7efe3;
+  border: 1px solid #ddd0bd;
+  border-radius: 10px;
+}
+
+.progress-block > h3 {
+  margin-top: 0;
+  font-size: 18px;
+}
+
+.chart-toolbar {
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.chart-toolbar select {
+  margin-left: 6px;
+  padding: 4px 8px;
+}
+
+#profile-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.main-page {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tab-panel {
+  flex: 1;
+  min-height: 0;
+}
+
+.activity-grass {
+  display: block;
+}
+
+.grass-cell {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid #ddd0bd;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.grass-cell.level-0 {
+  background: #eee7dc;
+}
+
+.grass-cell.level-1 {
+  background: #d8c3a5;
+}
+
+.grass-cell.level-2 {
+  background: #c49a6c;
+}
+
+.grass-cell.level-3 {
+  background: #a87f52;
+}
+
+.grass-cell.level-4 {
+  background: #6f4535;
+}
+
+.activity-receipt {
+  min-height: 160px;
+}
+
+.receipt-card {
+  max-width: 360px;
+  padding: 18px 16px;
+  background: #fffaf3;
+  border: 1px solid #ddd0bd;
+  border-radius: 4px;
+  color: #4b3728;
+  font-family: "Yu Gothic", "Hiragino Sans", sans-serif;
+  box-shadow: 0 4px 12px rgba(75, 55, 40, 0.12);
+}
+
+.receipt-header {
+  text-align: center;
+  border-bottom: 1px dashed #c9b79f;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+}
+
+.receipt-header h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  letter-spacing: 0.08em;
+}
+
+.receipt-header span {
+  display: block;
+  font-size: 13px;
+  color: #777;
+}
+
+.receipt-items {
+  border-bottom: 1px dashed #c9b79f;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+.receipt-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 5px 0;
+  font-size: 14px;
+}
+
+.receipt-row span {
+  color: #777;
+}
+
+.receipt-row strong {
+  color: #4b3728;
+}
+
+.receipt-footer {
+  margin-top: 10px;
+  padding-top: 8px;
+  text-align: right;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+/*
+.timeline-layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 240px 32px 1fr;
+  gap: 8px;
+}
+*/
+
+.timeline-side-panel {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px;
+  background: #fffaf3;
+  border: 1px solid #ddd0bd;
+  border-radius: 8px;
+}
+
+.timeline-detail-panel {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px;
+  background: #fffaf3;
+  border: 1px solid #ddd0bd;
+  border-radius: 8px;
+}
+
+.timeline-side-toggle {
+  align-self: start;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: #ddd0bd;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.timeline-list-button {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 8px;
+  border: none;
+  background: #eee2d0;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.timeline-list-button:hover {
+  background: #d8c3a5;
+}
+
+.timeline-list-button.active {
+  background: #c49a6c;
+  color: white;
+}
+
+#timeline-editor {
+  min-height: 220px;
+  border: 1px solid #ddd0bd;
+  border-radius: 8px;
+  background: #fffaf3;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+#timeline-editor .cm-editor {
+  min-height: 220px;
+  height: 220px;
+}
+
+#timeline-editor .cm-scroller {
+  min-height: 220px;
+}
+
+#timeline-editor .cm-scroller {
+  font-family: "Yu Gothic", "Hiragino Sans", sans-serif;
+  line-height: 1.7;
+  padding: 12px;
+}
+
+.event-pages,
+.event-flags {
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 10px;
+  margin-top: 12px;
+  background: #fffaf3;
+  border: 1px solid #ddd0bd;
+  border-radius: 8px;
+}
+
+.timeline-title {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  font-size: 20px;
+  font-weight: bold;
+  border: 1px solid #ddd0bd;
+  border-radius: 8px;
+  background: #fffaf3;
+}
+
+.timeline-list-button {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  background: #eee2d0;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.timeline-list-button:hover {
+  background: #d8c3a5;
+}
+
+.timeline-list-button.active {
+  background: #c49a6c;
+  color: white;
+  font-weight: bold;
+}
+
+.related-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.related-chip {
+  border: none;
+  padding: 5px 8px;
+  background: #d8c3a5;
+  color: #4b3728;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.related-chip:hover {
+  background: #c49a6c;
+  color: white;
+}
+
+.timeline-page-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  border: 1px solid #ddd0bd;
+  border-radius: 6px;
+  background: #fffaf3;
+}
+
+.timeline-page-search-results {
+  margin-top: 6px;
+}
+
+.search-result-button {
+  display: block;
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 6px 8px;
+  border: none;
+  background: #eee2d0;
+  text-align: left;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.search-result-button:hover {
+  background: #d8c3a5;
+}
+
+.related-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: 5px 8px;
+
+  background: #d8c3a5;
+  border-radius: 999px;
+}
+
+.remove-related-page {
+  border: none;
+  background: transparent;
+
+  cursor: pointer;
+
+  font-weight: bold;
+}
+
+.remove-related-page:hover {
+  color: crimson;
+}
+
+.page-button-row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.page-button-row .page-button {
+  flex: 1;
+}
+
+.hide-page-button,
+.restore-page-button {
+  border: none;
+  padding: 4px 6px;
+  background: #ddd0bd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.hide-page-button:hover,
+.restore-page-button:hover {
+  background: #c49a6c;
+  color: white;
+}
+
+.hidden-page-group {
+  margin-top: 16px;
+  opacity: 0.9;
+}
+
+.hidden-folder-title {
+  margin: 8px 0 4px;
+  font-size: 13px;
+  font-weight: bold;
+  color: #6f4535;
+}
+
+.hidden-page-button {
+  opacity: 0.75;
+}
+
+.hide-page-button,
+.restore-page-button {
+    width: 24px;
+    height: 24px;
+
+    padding: 0;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.page-button-row .hide-page-button {
+    opacity: 0;
+    transition: .15s;
+}
+
+.page-button-row:hover .hide-page-button {
+    opacity: 1;
+}
+
+.hide-page-button,
+.restore-page-button {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  flex: 0 0 24px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.hide-page-button {
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.page-button-row:hover .hide-page-button {
+  opacity: 1;
+}
+
+.hide-page-button:hover,
+.restore-page-button:hover {
+  background: #ddd0bd;
+}
+
+.timeline-toolbar{
+    display:flex;
+    gap:8px;
+    margin-bottom:12px;
+}
+
+.timeline-view-button{
+    padding:6px 12px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    background:#eee2d0;
+}
+
+.timeline-view-button.active{
+    background:#c49a6c;
+    color:white;
+}
+
+/*
+#timeline-detail-layout.list-collapsed {
+  grid-template-columns: 32px minmax(0, 1fr);
+}
+
+#timeline-detail-layout.list-collapsed .timeline-side-panel {
+  display: none;
+}
+
+#timeline-detail-layout.list-collapsed .timeline-side-toggle {
+  grid-column: 1;
+}
+
+#timeline-detail-layout.list-collapsed .timeline-detail-panel {
+  grid-column: 2;
+  min-width: 0;
+}
+*/
+
+.timeline-overview-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px;
+  background: #fffaf3;
+  border: 1px solid #ddd0bd;
+  border-radius: 8px;
+}
+
+.timeline-overview-card {
+  padding: 14px 0;
+  border-bottom: 1px dashed #ddd0bd;
+}
+
+.timeline-overview-card:last-child {
+  border-bottom: none;
+}
+
+.timeline-overview-title {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #4b3728;
+  font-size: 18px;
+  font-weight: bold;
+  text-align: left;
+  cursor: pointer;
+}
+
+.timeline-overview-title:hover {
+  color: #a87f52;
+}
+
+.timeline-overview-body {
+  white-space: pre-wrap;
+  line-height: 1.8;
+  color: #333;
+}
+
+/*
+#timeline-detail-layout.list-collapsed {
+  grid-template-columns: 32px minmax(0, 1fr) !important;
+}
+
+#timeline-detail-layout.list-collapsed .timeline-side-panel {
+  display: none !important;
+}
+
+#timeline-detail-layout.list-collapsed .timeline-side-toggle {
+  grid-column: 1 !important;
+}
+
+#timeline-detail-layout.list-collapsed .timeline-detail-panel {
+  grid-column: 2 !important;
+  width: auto !important;
+  min-width: 0;
+}
+*/
+
+.timeline-overview-info{
+    margin-top:10px;
+
+    font-size:13px;
+
+    color:#777;
+}
+
+.timeline-overview-info {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.timeline-overview-info-button {
+  border: none;
+  background: #eee2d0;
+  padding: 4px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #5a4635;
+}
+
+.timeline-overview-info-button:hover {
+  background: #d8c3a5;
+}
+
+.timeline-overview-related {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: #f7efe3;
+  border: 1px solid #ddd0bd;
+  border-radius: 8px;
+}
+
+.timeline-overview-related-item {
+  font-size: 13px;
+  padding: 3px 0;
+  color: #5a4635;
+}
+
+.focused-flag {
+  outline: 3px solid #c49a6c;
+  box-shadow: 0 0 0 4px rgba(196, 154, 108, 0.18);
+}
+
+.timeline-overview-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timeline-overview-title-row .timeline-overview-title {
+  flex: 1;
+}
+
+.timeline-overview-edit-button {
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0.45;
+}
+
+.timeline-overview-edit-button:hover {
+  opacity: 1;
+  background: #eee2d0;
+}
+
+.novel-panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
+
+.flag-header {
+  display: grid;
+  grid-template-columns: 24px 1fr 32px;
+  align-items: start;
+  gap: 8px;
+}
+
+.flag-check {
+  margin-top: 6px;
+}
+
+.flag-title {
+  min-width: 0;
+}
+
+.flag-delete-icon {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0.55;
+}
+
+.flag-delete-icon:hover {
+  opacity: 1;
+  background: #eee2d0;
+}
+
+.flag-expand-button{
+
+    margin:8px 0;
+
+    border:none;
+
+    background:none;
+
+    cursor:pointer;
+
+    color:#777;
+
+}
+
+.flag-card:has(.flag-check:checked) {
+  opacity: 0.65;
+}
+
+.flag-card:has(.flag-check:checked) .flag-title {
+  text-decoration: line-through;
+}
+
+.flag-actions{
+
+    display:flex;
+
+    justify-content:flex-end;
+
+    gap:8px;
+
+    margin-top:12px;
+
+}
+
+.flag-actions button{
+
+    width:30px;
+
+    height:30px;
+
+    border:none;
+
+    background:#f4ede4;
+
+    border-radius:6px;
+
+    cursor:pointer;
+
+}
+
+.flag-actions button:hover{
+
+    background:#e2d1bb;
+
+}
+
+.flag-header {
+  display: grid;
+  grid-template-columns: 24px 24px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.flag-collapse-toggle {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #777;
+  font-size: 13px;
+}
+
+.flag-collapse-toggle:hover {
+  color: #4b3728;
+}
+
+.activity-grass-header{
+    display:flex;
+    align-items:center;
+    justify-content:flex-start;
+    gap:8px;
+    margin-bottom:12px;
+}
+
+.activity-grass-header h3{
+    margin:0;
+    min-width:140px;
+    text-align:left;
+}
+
+.activity-grass-header .side-button{
+    flex:0 0 32px;
+
+    width:32px;
+    min-width:32px;
+    max-width:32px;
+
+    height:32px;
+
+    padding:0;
+}
+
+.activity-weekday-header,
+.activity-grass-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 26px);
+  gap: 4px;
+}
+
+.activity-weekday-header {
+  margin-bottom: 4px;
+}
+
+.activity-weekday {
+  width: 26px;
+  text-align: center;
+  font-size: 11px;
+  color: #777;
+}
+
+.activity-grass-grid .grass-cell {
+  width: 26px;
+  height: 26px;
+  font-size: 11px;
+}
+
+.grass-cell-empty {
+  border: none;
+  background: transparent;
+  cursor: default;
+}
+
+.grass-cell-today {
+  outline: 2px solid #6f4535;
+}
+
+.grass-cell-selected {
+  box-shadow: 0 0 0 3px rgba(196, 154, 108, 0.35);
+}
+
+
+/* ==============================
+   起動画面
+============================== */
+.startup-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f4f1ec;
+}
+
+.startup-card {
+  width: 420px;
+  max-width: 90%;
+  padding: 32px;
+  background: #fffaf3;
+  border: 1px solid #ddd0bd;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(75, 55, 40, 0.12);
+  text-align: center;
+}
+
+.startup-card h1 {
+  color: #4b3728;
+  margin-bottom: 12px;
+}
+
+.startup-title-row {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.startup-title-row h1 {
+  margin: 0;
+}
+
+.startup-menu-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.startup-title-row .dropdown-menu {
+  left: 0;
+  right: auto;
+}
+
+.startup-menu-button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #ddd0bd;
+  background: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.startup-menu-button:hover {
+  background: #ead7b7;
+}
+
+.startup-menu {
+  min-width: 180px;
+}
+
+.startup-card p {
+  color: #777;
+  margin-bottom: 24px;
+}
+
+.startup-main-button {
+  padding: 12px 20px;
+  border: none;
+  background: #c49a6c;
+  color: white;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.startup-main-button:hover {
+  background: #a87f52;
+}
+
+.startup-last-work-card{
+    margin:24px 0;
+    padding:16px;
+
+    border:1px solid #ddd;
+
+    border-radius:10px;
+
+    background:#fff;
+}
+
+#startup-last-work-title{
+    margin:12px 0 20px;
+
+    font-size:18px;
+    font-weight:bold;
+}
+
+.startup-sub-button{
+
+    padding:10px 18px;
+
+    border:1px solid #bbb;
+
+    background:white;
+
+    border-radius:8px;
+
+    cursor:pointer;
+}
+
+.startup-layout {
+  display: flex;
+}
+
+.startup-card-wide {
+  width: 760px;
+}
+
+.startup-layout {
+  display: flex;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.startup-left,
+.startup-right {
+  flex: 1;
+}
+
+.startup-work-list {
+  max-height: 320px;
+  overflow-y: auto;
+  margin-top: 12px;
+}
+
+.startup-work-button {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 12px;
+  border: none;
+  background: #eee2d0;
+  color: #333;
+  text-align: left;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.startup-work-button:hover {
+  background: #d8c3a5;
+}
+
+.startup-work-button.active {
+  background: #c49a6c;
+  color: white;
+}
+
+.startup-work-button:hover {
+  background: #d8c3a5;
+}
+
+.startup-work-button.active {
+  background: #c49a6c;
+  color: white;
+}
+
+.startup-work-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.startup-work-row .startup-work-button {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.startup-work-delete-button {
+  width: 34px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.startup-work-row:hover .startup-work-delete-button {
+  opacity: 1;
+}
+
+.startup-work-delete-button:hover {
+  background: #ead7b7;
+}
+
+.modal-input-label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 8px;
+  box-sizing: border-box;
+  border: 1px solid #ddd0bd;
+  border-radius: 6px;
+  font-size: 16px;
+}
+
+.save-status-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 130px;
+}
+
+.last-saved-at {
+  font-size: 12px;
+  color: #ddd0bd;
+}
+
+.modal-window.profile-modal {
+    width: min(1100px, 90vw);
+}
+
+#modal-window {
+  width: min(1100px, 90vw);
+  max-height: 85vh;
+  overflow: hidden;
+}
+
+.startup-profile-modal-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(280px, 1fr);
+  gap: 16px;
+  max-height: 65vh;
+}
+
+.startup-profile-left,
+.startup-profile-right {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.startup-profile-right .receipt-card {
+  max-width: none;
+}
+
+.startup-profile-section {
+  min-width: 0;
+}
+
+#startup-activity-receipt .receipt-card {
+  max-width: none;
+}
+
+body.is-resizing {
+  user-select: none;
+  cursor: col-resize;
+}
+
+body.is-resizing * {
+  user-select: none;
+}
+
+.dictionary-add-menu {
+  position: relative;
+}
+
+.dictionary-add-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 100;
+
+  min-width: 180px;
+  padding: 6px;
+
+  background: var(--panel-bg, #ffffff);
+  border: 1px solid #cccccc;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.dictionary-add-dropdown button {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dictionary-add-dropdown button:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.dictionary-add-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.dictionary-add-menu > button {
+  white-space: nowrap;
+}
+
+/* フォルダ追加・辞書追加の箱を、横並びの中で同じ幅にする */
+.sidebar-actions .dictionary-add-menu {
+  flex: 1;
+  min-width: 0;
+}
+
+/* メニューを開く親ボタンを、箱いっぱいの幅にする */
+.sidebar-actions .dictionary-add-menu > .new-page-button {
+  width: 100%;
+  height: 100%;
+  margin-bottom: 0;
+  padding: 8px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.dictionary-add-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 100;
+
+  min-width: 180px;
+}
+
+/* 閉じた部分に表示される「…」 */
+#dictionary-editor .cm-foldPlaceholder {
+  margin-left: 6px;
+  padding: 1px 7px;
+
+  border: 1px solid #d8c8b4;
+  border-radius: 999px;
+
+  background: #f7efe3;
+  color: #777;
+
+  cursor: pointer;
+}
+
+/* 辞書本文の見出し開閉ボタン */
+#dictionary-editor
+.cm-dictionary-heading-toggle {
+  display: inline-block;
+
+  color: #7b5a3c;
+  font-weight: bold;
+
+  cursor: pointer;
+  user-select: none;
+
+  border-radius: 4px;
+}
+
+#dictionary-editor
+.cm-dictionary-heading-toggle:hover {
+  background: #ead7b7;
+}
+
+/* 閉じた本文を示す省略表示 */
+#dictionary-editor
+.cm-foldPlaceholder {
+  margin-left: 6px;
+  padding: 1px 7px;
+
+  border: 1px solid #d8c8b4;
+  border-radius: 999px;
+
+  background: #f7efe3;
+  color: #777;
+
+  cursor: pointer;
+}
+
+/* 右ペイン上部の切替タブ */
+.right-tabs {
+  display: flex;
+  gap: 4px;
+
+  padding: 8px;
+
+  border-bottom:
+    1px solid #d8c8b4;
+}
+
+/* 右ペインの切替ボタン */
+.right-tab {
+  flex: 1;
+
+  padding: 7px 6px;
+
+  border:
+    1px solid transparent;
+  border-radius: 6px;
+
+  background: transparent;
+
+  cursor: pointer;
+}
+
+/* 現在開いている右タブ */
+.right-tab.active {
+  border-color: #cbb89e;
+  background: #f3eadf;
+  font-weight: bold;
+}
+
+/* 右タブの各内容 */
+.right-tab-panel {
+  min-width: 0;
+  height: 100%;
+
+  overflow: auto;
+}
+
+/* 右ペイン自体を縦並びにする */
+.detail {
+  display: flex;
+  flex-direction: column;
+
+  min-width: 0;
+  min-height: 0;
+
+  overflow: hidden;
+}
+
+/* =================================
+   右ペイン：時系列
+================================= */
+
+/* 時系列パネル全体を縦に並べる */
+#timeline-panel {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+
+  overflow: hidden;
+}
+
+/* 上段：タイトルと操作ボタン */
+.timeline-right-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+
+  flex-shrink: 0;
+
+  padding: 8px 10px;
+
+  border-bottom: 1px solid #d8c8b4;
+}
+
+.timeline-right-header h2 {
+  margin: 0;
+
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+/* 詳細・全体・追加ボタンを一列にする */
+#timeline-panel .timeline-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  margin: 0;
+}
+
+/* 右ペインではボタンを小さめにする */
+#timeline-panel .timeline-view-button,
+#timeline-panel .timeline-add-button {
+  min-width: 0;
+  padding: 5px 8px;
+
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+#timeline-panel .timeline-add-button {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* 詳細表示時の中段＋下段 */
+#timeline-detail-layout {
+  display: grid;
+
+  /* 上：一覧、下：詳細 */
+  grid-template-rows:
+    minmax(100px, 28vh)
+    minmax(0, 1fr);
+
+  min-width: 0;
+  min-height: 0;
+  height: calc(100% - 45px);
+
+  overflow: hidden;
+}
+
+/* 中段：イベント一覧 */
+.timeline-right-list-area {
+  display: flex;
+  flex-direction: column;
+
+  min-width: 0;
+  min-height: 0;
+
+  border-bottom: 1px solid #d8c8b4;
+
+  overflow: hidden;
+}
+
+.timeline-right-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  flex-shrink: 0;
+
+  padding: 5px 8px;
+
+  background: #f7f1e8;
+
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.timeline-list-toggle {
+  padding: 2px 6px;
+
+  border: 0;
+  background: transparent;
+
+  cursor: pointer;
+}
+
+/* イベント名一覧だけをスクロール可能にする */
+#timeline-list {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* 一覧ボタンを右ペイン向けに小さくする */
+#timeline-panel .timeline-list-button {
+  display: block;
+
+  width: 100%;
+  padding: 6px 8px;
+
+  overflow: hidden;
+
+  border: 0;
+  border-bottom: 1px solid #eee4d8;
+
+  background: transparent;
+
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  cursor: pointer;
+}
+
+#timeline-panel .timeline-list-button:hover {
+  background: #f7efe3;
+}
+
+#timeline-panel .timeline-list-button.active {
+  background: #eadbc8;
+  font-weight: bold;
+}
+
+/* 下段：イベント詳細 */
+.timeline-right-detail {
+  min-width: 0;
+  min-height: 0;
+
+  padding: 10px;
+
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* 詳細内のタイトル入力 */
+#timeline-panel .timeline-title {
+  box-sizing: border-box;
+
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+/* 時系列本文CodeMirror */
+#timeline-panel #timeline-editor {
+  min-width: 0;
+  margin-bottom: 12px;
+}
+
+#timeline-panel #timeline-editor .cm-editor {
+  min-height: 160px;
+}
+
+/* 全体表示も右ペイン内でスクロールする */
+.timeline-right-overview {
+  height: calc(100% - 45px);
+  padding: 8px;
+
+  overflow-y: auto;
+}
+
+/* イベント一覧を閉じた状態 */
+#timeline-detail-layout.list-collapsed {
+  grid-template-rows:
+    auto
+    minmax(0, 1fr);
+}
+
+/* 見出しだけ残して、一覧本文を隠す */
+#timeline-detail-layout.list-collapsed
+#timeline-list {
+  display: none;
+}
+
+/* 右ペイン内では関連項目を縦にも折り返す */
+#timeline-panel .related-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+#timeline-panel .related-chip {
+  max-width: 100%;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* =================================
+   右ペイン時系列：縦型レイアウトを強制
+================================= */
+
+#timeline-detail-layout {
+  display: grid;
+
+  /* 横方向は常に1列だけ */
+  grid-template-columns:
+    minmax(0, 1fr);
+
+  /* 上が一覧、下が詳細 */
+  grid-template-rows:
+    minmax(100px, 28vh)
+    minmax(0, 1fr);
+
+  width: 100%;
+  min-width: 0;
+}
+
+/* 一覧を閉じた場合も横幅は狭めない */
+#timeline-detail-layout.list-collapsed {
+  grid-template-columns:
+    minmax(0, 1fr);
+
+  grid-template-rows:
+    auto
+    minmax(0, 1fr);
+}
+
+/* 一覧エリアは必ず右ペイン幅いっぱい使う */
+.timeline-right-list-area {
+  width: 100%;
+  min-width: 0;
+}
+
+/* 「イベント一覧 ▲」を横一列に保つ */
+.timeline-right-list-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+
+  padding: 6px 10px;
+
+  writing-mode: horizontal-tb;
+  white-space: nowrap;
+}
+
+/* 開閉ボタンを押しやすくする */
+.timeline-list-toggle {
+  flex: 0 0 auto;
+
+  min-width: 32px;
+  min-height: 28px;
+  padding: 3px 8px;
+
+  border: 1px solid #d8c8b4;
+  border-radius: 5px;
+
+  background: #fffaf4;
+
+  cursor: pointer;
+}
+
+/* 一覧を閉じた時は、一覧本文だけ消す */
+#timeline-detail-layout.list-collapsed
+#timeline-list {
+  display: none;
+}
+
+/* =================================
+   辞書本文：行間Widgetの操作性改善
+================================= */
+
+/*
+  行間Widgetの空白部分が、
+  CodeMirror本文のクリックやドラッグを奪わないようにする
+*/
+#dictionary-editor
+.cm-line-action-widget {
+  pointer-events: none;
+
+  display: flex;
+  justify-content: flex-end;
+
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 12px;
+
+  padding-right: 6px;
+}
+
+/*
+  ＋ボタンそのものだけはクリック可能に戻す
+*/
+#dictionary-editor
+.cm-line-action-button {
+  pointer-events: auto;
+
+  opacity: 0.18;
+
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease;
+}
+
+/* ボタンへマウスを置いた時は、はっきり表示する */
+#dictionary-editor
+.cm-line-action-button:hover,
+#dictionary-editor
+.cm-line-action-button:focus-visible {
+  opacity: 1;
+}
+
+/*
+  出典・注釈Widgetも、箱の外側の余白では
+  本文のマウス操作を邪魔しない
+*/
+#dictionary-editor
+.cm-source-widget,
+#dictionary-editor
+.cm-annotation-widget {
+  pointer-events: none;
+}
+
+/*
+  表示本文と操作ボタンは触れるように戻す
+*/
+#dictionary-editor
+.cm-source-body,
+#dictionary-editor
+.cm-source-actions,
+#dictionary-editor
+.cm-annotation-body,
+#dictionary-editor
+.cm-annotation-actions {
+  pointer-events: auto;
+}
+
+/* 大見出し */
+#dictionary-editor
+.cm-dictionary-heading-toggle[
+  data-heading-level="1"
+] {
+  font-size: 1.05em;
+}
+
+/* 中見出し */
+#dictionary-editor
+.cm-dictionary-heading-toggle[
+  data-heading-level="2"
+] {
+  font-size: 0.95em;
+}
+
+/* 小見出し以下 */
+#dictionary-editor
+.cm-dictionary-heading-toggle[
+  data-heading-level="3"
+],
+#dictionary-editor
+.cm-dictionary-heading-toggle[
+  data-heading-level="4"
+],
+#dictionary-editor
+.cm-dictionary-heading-toggle[
+  data-heading-level="5"
+],
+#dictionary-editor
+.cm-dictionary-heading-toggle[
+  data-heading-level="6"
+] {
+  font-size: 0.9em;
+}
+
+/* 辞書見出しの階層インデント */
+#dictionary-editor
+.cm-dictionary-heading-toggle[
+  data-heading-level="2"
+] {
+  margin-left: 16px;
+}
+
+#dictionary-editor
+.cm-dictionary-heading-toggle[
+  data-heading-level="3"
+] {
+  margin-left: 32px;
+}
+
+#dictionary-editor
+.cm-dictionary-heading-toggle[
+  data-heading-level="4"
+] {
+  margin-left: 48px;
+}
+
+#dictionary-editor
+.cm-dictionary-heading-toggle[
+  data-heading-level="5"
+] {
+  margin-left: 64px;
+}
+
+#dictionary-editor
+.cm-dictionary-heading-toggle[
+  data-heading-level="6"
+] {
+  margin-left: 80px;
 }
